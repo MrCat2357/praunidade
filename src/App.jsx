@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./services/firebase/config";
 import Login from "./pages/Login";
+import Conexoes from "./pages/Conexoes";
 
 function RotaProtegida({ children, usuario, carregando }) {
   if (carregando) return <div className="loading">Carregando...</div>;
@@ -17,8 +18,14 @@ function Home({ usuario }) {
       <h1>Olá, {usuario?.displayName || "usuário"}!</h1>
       <p>PraUnidade — em construção.</p>
       <button
-        onClick={() => auth.signOut().then(() => navigate("/login"))}
+        onClick={() => navigate("/conexoes")}
         style={{ marginTop: 16, padding: "10px 20px", cursor: "pointer" }}
+      >
+        Conexões
+      </button>
+      <button
+        onClick={() => auth.signOut().then(() => navigate("/login"))}
+        style={{ marginTop: 16, marginLeft: 8, padding: "10px 20px", cursor: "pointer" }}
       >
         Sair
       </button>
@@ -51,6 +58,14 @@ export default function App() {
         element={
           <RotaProtegida usuario={usuario} carregando={carregando}>
             <Home usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/conexoes"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Conexoes usuario={usuario} />
           </RotaProtegida>
         }
       />

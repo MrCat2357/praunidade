@@ -59,6 +59,7 @@ async function saveUserToFirestore(user, displayName) {
       email: user.email,
       nome: displayName || user.displayName || "",
       foto: user.photoURL || "",
+      conexoes: [],
       criadoEm: serverTimestamp(),
     },
     { merge: true }
