@@ -42,14 +42,8 @@
   margin: 0 0 14px 0;
 }
 
-.conexoes-busca-form {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
 .conexoes-input {
-  flex: 1;
+  width: 100%;
   padding: 14px 16px;
   font-size: 16px;
   background-color: #ffffff;
@@ -69,33 +63,20 @@
   color: #8aa893;
 }
 
-.conexoes-btn-buscar {
-  padding: 14px 18px;
-  font-size: 15px;
-  font-weight: 600;
-  background-color: #3e7d52;
-  color: #eaf6ed;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  min-height: 50px;
-  transition: background-color 0.2s, opacity 0.2s;
-}
-
-.conexoes-btn-buscar:hover:not(:disabled) {
-  background-color: #1f4d2e;
-}
-
-.conexoes-btn-buscar:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .conexoes-lista {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-top: 12px;
+}
+
+/* Lista com altura fixa para caber de 4 a 7 itens visíveis, com
+   rolagem própria — usada na busca, para simular o padrão de
+   rolagem infinita de redes sociais. */
+.conexoes-lista-rolavel {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .conexoes-item {
@@ -282,11 +263,7 @@
     padding: 16px 14px;
   }
 
-  .conexoes-busca-form {
-    flex-direction: column;
-  }
-
-  .conexoes-btn-buscar {
-    width: 100%;
+  .conexoes-lista-rolavel {
+    max-height: 360px;
   }
 }

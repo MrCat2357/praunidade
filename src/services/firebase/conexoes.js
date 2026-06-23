@@ -35,6 +35,10 @@ export async function buscarUsuariosPorNome(nomeBusca, meuUid) {
     }
   });
 
+  // Ordena por nome para que resultados com nomes iguais (homônimos)
+  // fiquem agrupados visualmente na lista, facilitando a comparação.
+  resultados.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+
   return resultados;
 }
 

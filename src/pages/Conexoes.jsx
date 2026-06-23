@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   buscarUsuariosPorNome,
@@ -10,12 +10,24 @@ import {
 } from "../services/firebase/conexoes";
 import "./Conexoes.css";
 
+const RESULTADOS_POR_PAGINA = 6;
+
 // Gera as iniciais do nome para usar como avatar quando não há foto.
 function iniciaisDoNome(nome) {
   if (!nome) return "?";
   const partes = nome.trim().split(/\s+/);
   if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+// Mascara o e-mail para diferenciar pessoas com nome igual sem expor o
+// endereço completo (ex: "joao.silva@gmail.com" -> "jo***@gmail.com").
+function mascararEmail(email) {
+  if (!email) return "";
+  const [usuario, dominio] = email.split("@");
+  if (!dominio) return email;
+  const visivel = usuario.slice(0, 2);
+  return `${visivel}***@${dominio}`;
 }
 
 function Avatar({ nome, foto }) {
@@ -33,7 +45,9 @@ export default function Conexoes({ usuario }) {
   const navigate = useNavigate();
 
   const [termoBusca, setTermoBusca] = useState("");
-  const [resultados, setResultados] = useState([]);
+  const [todosResultados, setTodosResultados] = useState([]);
+  const [resultadosVisiveis, setResultadosVisiveis] = useState([]);
+  const [paginaAtual, setPaginaAtual] = useState(1);
   const [buscando, setBuscando] = useState(false);
   const [jaBuscou, setJaBuscou] = useState(false);
 
@@ -50,7 +64,19 @@ export default function Conexoes({ usuario }) {
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
+  const debounceRef = useRef(null);
+  const listaResultadosRef = useRef(null);
+
   const meuUid = usuario?.uid;
+
+  // Verifica se existe mais de uma pessoa com o mesmo nome entre os
+  // resultados atuais, para decidir se mostramos o e-mail mascarado.
+  function nomeEhDuplicado(nome) {
+    const total = todosResultados.filter(
+      (r) => (r.nome || "").toLowerCase() === (nome || "").toLowerCase()
+    ).length;
+    return total > 1;
+  }
 
   const carregarPendentes = useCallback(async () => {
     if (!meuUid) return;
@@ -88,21 +114,60 @@ export default function Conexoes({ usuario }) {
     setMensagem("");
   }
 
-  async function handleBuscar(e) {
-    e.preventDefault();
-    limparAvisos();
-    if (!termoBusca.trim()) return;
+  // Executa a busca de fato (chamada após o debounce).
+  const executarBusca = useCallback(
+    async (termo) => {
+      if (!termo.trim()) {
+        setTodosResultados([]);
+        setResultadosVisiveis([]);
+        setJaBuscou(false);
+        return;
+      }
 
-    setBuscando(true);
-    setJaBuscou(true);
-    try {
-      const lista = await buscarUsuariosPorNome(termoBusca, meuUid);
-      setResultados(lista);
-    } catch (e) {
-      setErro("Não foi possível buscar agora. Tente novamente em alguns instantes.");
-      setResultados([]);
-    } finally {
-      setBuscando(false);
+      setBuscando(true);
+      setJaBuscou(true);
+      try {
+        const lista = await buscarUsuariosPorNome(termo, meuUid);
+        setTodosResultados(lista);
+        setPaginaAtual(1);
+        setResultadosVisiveis(lista.slice(0, RESULTADOS_POR_PAGINA));
+      } catch (e) {
+        setErro("Não foi possível buscar agora. Tente novamente em alguns instantes.");
+        setTodosResultados([]);
+        setResultadosVisiveis([]);
+      } finally {
+        setBuscando(false);
+      }
+    },
+    [meuUid]
+  );
+
+  // Dispara a busca automaticamente conforme o usuário digita, com
+  // debounce de 500ms para não buscar a cada letra.
+  function handleMudarTermo(e) {
+    const valor = e.target.value;
+    setTermoBusca(valor);
+    limparAvisos();
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      executarBusca(valor);
+    }, 500);
+  }
+
+  // Scroll infinito: quando o usuário rola até perto do fim da lista,
+  // carrega a próxima página de resultados já buscados.
+  function handleScrollResultados() {
+    const el = listaResultadosRef.current;
+    if (!el) return;
+
+    const chegouAoFim = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (!chegouAoFim) return;
+
+    const proximaQtd = (paginaAtual + 1) * RESULTADOS_POR_PAGINA;
+    if (proximaQtd > resultadosVisiveis.length && resultadosVisiveis.length < todosResultados.length) {
+      setPaginaAtual((p) => p + 1);
+      setResultadosVisiveis(todosResultados.slice(0, proximaQtd));
     }
   }
 
@@ -164,33 +229,37 @@ export default function Conexoes({ usuario }) {
         {/* Seção 1: Buscar usuário */}
         <section className="conexoes-secao">
           <h2 className="conexoes-secao-titulo">Buscar pessoa</h2>
-          <form className="conexoes-busca-form" onSubmit={handleBuscar}>
-            <input
-              type="text"
-              className="conexoes-input"
-              placeholder="Digite o nome da pessoa"
-              value={termoBusca}
-              onChange={(e) => setTermoBusca(e.target.value)}
-            />
-            <button type="submit" className="conexoes-btn-buscar" disabled={buscando}>
-              {buscando ? "Buscando..." : "Buscar"}
-            </button>
-          </form>
+          <input
+            type="text"
+            className="conexoes-input"
+            placeholder="Digite o nome da pessoa"
+            value={termoBusca}
+            onChange={handleMudarTermo}
+          />
 
-          {jaBuscou && !buscando && resultados.length === 0 && (
+          {buscando && <p className="conexoes-loading">Buscando...</p>}
+
+          {!buscando && jaBuscou && resultadosVisiveis.length === 0 && (
             <p className="conexoes-vazio">Nenhuma pessoa encontrada com esse nome.</p>
           )}
 
-          {resultados.length > 0 && (
-            <div className="conexoes-lista">
-              {resultados.map((r) => {
+          {!buscando && resultadosVisiveis.length > 0 && (
+            <div
+              className="conexoes-lista conexoes-lista-rolavel"
+              ref={listaResultadosRef}
+              onScroll={handleScrollResultados}
+            >
+              {resultadosVisiveis.map((r) => {
                 const status = statusDoUsuario(r.uid);
+                const mostrarEmail = nomeEhDuplicado(r.nome);
                 return (
                   <div className="conexoes-item" key={r.uid}>
                     <Avatar nome={r.nome} foto={r.foto} />
                     <div className="conexoes-info">
                       <p className="conexoes-nome">{r.nome || "Sem nome"}</p>
-                      <p className="conexoes-email">{r.email}</p>
+                      {mostrarEmail && (
+                        <p className="conexoes-email">{mascararEmail(r.email)}</p>
+                      )}
                     </div>
                     <button
                       className="conexoes-btn-conectar"
