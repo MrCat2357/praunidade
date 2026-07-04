@@ -1,0 +1,238 @@
+/* Perfil.css */
+
+.perfil-bg {
+  min-height: 100vh;
+  background-color: #eaf3ec;
+  padding: 24px 16px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.perfil-container {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.perfil-link-voltar {
+  display: inline-block;
+  background: none;
+  border: none;
+  color: #2e4374;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 16px;
+  padding: 4px 0;
+}
+
+.perfil-link-voltar:hover {
+  text-decoration: underline;
+}
+
+.perfil-titulo {
+  font-size: 24px;
+  font-weight: 700;
+  color: #123320;
+  margin: 0 0 4px 0;
+}
+
+.perfil-sub {
+  font-size: 15px;
+  color: #3e7d52;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.perfil-card {
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 16px;
+  padding: 24px 20px;
+  margin-bottom: 16px;
+}
+
+/* Avatar */
+.perfil-avatar-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.perfil-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #3e7d52;
+  color: #eaf6ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 28px;
+  overflow: hidden;
+  border: 3px solid #9fc9ac;
+}
+
+.perfil-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Form */
+.perfil-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.perfil-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.perfil-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f4d2e;
+}
+
+.perfil-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 10px;
+  color: #123320;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.perfil-input:focus {
+  border-color: #3e7d52;
+}
+
+.perfil-input::placeholder {
+  color: #8aa893;
+}
+
+.perfil-input-bloqueado {
+  background-color: #eaf3ec;
+  color: #3e7d52;
+  cursor: default;
+  border-color: #bfe0c9;
+}
+
+.perfil-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 10px;
+  color: #123320;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  resize: none;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.perfil-textarea:focus {
+  border-color: #3e7d52;
+}
+
+.perfil-textarea::placeholder {
+  color: #8aa893;
+}
+
+.perfil-contador {
+  font-size: 12px;
+  color: #8aa893;
+  text-align: right;
+  margin: 0;
+}
+
+.perfil-contador-limite {
+  color: #b8860b;
+}
+
+/* Botões */
+.perfil-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.perfil-btn-salvar {
+  width: 100%;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  background-color: #3e7d52;
+  color: #eaf6ed;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 50px;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.perfil-btn-salvar:hover:not(:disabled) {
+  background-color: #1f4d2e;
+}
+
+.perfil-btn-salvar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.perfil-btn-sair {
+  width: 100%;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  background-color: transparent;
+  color: #1b2a4a;
+  border: 1.5px solid #2e4374;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 50px;
+  transition: background-color 0.2s;
+}
+
+.perfil-btn-sair:hover {
+  background-color: #dce6f7;
+}
+
+/* Mensagens */
+.perfil-sucesso {
+  font-size: 14px;
+  color: #1f4d2e;
+  padding: 10px 14px;
+  background-color: #bfe0c9;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.perfil-erro {
+  font-size: 14px;
+  color: #501313;
+  padding: 10px 14px;
+  background-color: #fcebeb;
+  border-radius: 8px;
+  border: 1px solid #f0c1c1;
+  margin-top: 4px;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .perfil-card {
+    padding: 20px 16px;
+  }
+}

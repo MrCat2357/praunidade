@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   buscarUsuariosPorNome,
@@ -10,26 +10,6 @@ import {
 } from "../services/firebase/conexoes";
 import "./Conexoes.css";
 
-const RESULTADOS_POR_PAGINA = 6;
-
-// Gera as iniciais do nome para usar como avatar quando não há foto.
-function iniciaisDoNome(nome) {
-  if (!nome) return "?";
-  const partes = nome.trim().split(/\s+/);
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
-}
-
-// Mascara o e-mail para diferenciar pessoas com nome igual sem expor o
-// endereço completo (ex: "joao.silva@gmail.com" -> "jo***@gmail.com").
-function mascararEmail(email) {
-  if (!email) return "";
-  const [usuario, dominio] = email.split("@");
-  if (!dominio) return email;
-  const visivel = usuario.slice(0, 2);
-  return `${visivel}***@${dominio}`;
-}
-
 function Avatar({ nome, foto }) {
   if (foto) {
     return (
@@ -38,177 +18,109 @@ function Avatar({ nome, foto }) {
       </div>
     );
   }
-  return <div className="conexoes-avatar">{iniciaisDoNome(nome)}</div>;
+  const iniciais = (nome || "?")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0].toUpperCase())
+    .join("");
+  return <div className="conexoes-avatar">{iniciais || "?"}</div>;
 }
 
 export default function Conexoes({ usuario }) {
   const navigate = useNavigate();
+  const meuUid = usuario?.uid;
 
+  const [carregandoInicial, setCarregandoInicial] = useState(true);
   const [termoBusca, setTermoBusca] = useState("");
-  const [todosResultados, setTodosResultados] = useState([]);
-  const [resultadosVisiveis, setResultadosVisiveis] = useState([]);
-  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [resultadosBusca, setResultadosBusca] = useState([]);
   const [buscando, setBuscando] = useState(false);
-  const [jaBuscou, setJaBuscou] = useState(false);
+  const [solicitacoesEnviadasUids, setSolicitacoesEnviadasUids] = useState([]);
 
   const [pendentes, setPendentes] = useState([]);
-  const [carregandoPendentes, setCarregandoPendentes] = useState(true);
-
   const [conexoes, setConexoes] = useState([]);
-  const [carregandoConexoes, setCarregandoConexoes] = useState(true);
-
-  // uids para quem já enviei solicitação nesta sessão (evita "Conectar" duplicado
-  // antes da lista de pendentes recarregar do lado de quem recebeu)
-  const [enviadosAgora, setEnviadosAgora] = useState([]);
 
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
-  const debounceRef = useRef(null);
-  const listaResultadosRef = useRef(null);
-
-  const meuUid = usuario?.uid;
-
-  // Verifica se existe mais de uma pessoa com o mesmo nome entre os
-  // resultados atuais, para decidir se mostramos o e-mail mascarado.
-  function nomeEhDuplicado(nome) {
-    const total = todosResultados.filter(
-      (r) => (r.nome || "").toLowerCase() === (nome || "").toLowerCase()
-    ).length;
-    return total > 1;
-  }
-
-  const carregarPendentes = useCallback(async () => {
+  const carregarDados = useCallback(async () => {
     if (!meuUid) return;
-    setCarregandoPendentes(true);
+    setCarregandoInicial(true);
     try {
-      const lista = await listarSolicitacoesPendentes(meuUid);
-      setPendentes(lista);
-    } catch (e) {
-      setErro("Não foi possível carregar as solicitações pendentes agora.");
-    } finally {
-      setCarregandoPendentes(false);
-    }
-  }, [meuUid]);
-
-  const carregarConexoes = useCallback(async () => {
-    if (!meuUid) return;
-    setCarregandoConexoes(true);
-    try {
-      const lista = await listarConexoes(meuUid);
-      setConexoes(lista);
-    } catch (e) {
+      const [listaPendentes, listaConexoes] = await Promise.all([
+        listarSolicitacoesPendentes(meuUid),
+        listarConexoes(meuUid),
+      ]);
+      setPendentes(listaPendentes);
+      setConexoes(listaConexoes);
+    } catch {
       setErro("Não foi possível carregar suas conexões agora.");
     } finally {
-      setCarregandoConexoes(false);
+      setCarregandoInicial(false);
     }
   }, [meuUid]);
 
   useEffect(() => {
-    carregarPendentes();
-    carregarConexoes();
-  }, [carregarPendentes, carregarConexoes]);
+    carregarDados();
+  }, [carregarDados]);
 
-  function limparAvisos() {
+  function limparMensagens() {
     setErro("");
     setMensagem("");
   }
 
-  // Executa a busca de fato (chamada após o debounce).
-  const executarBusca = useCallback(
-    async (termo) => {
-      if (!termo.trim()) {
-        setTodosResultados([]);
-        setResultadosVisiveis([]);
-        setJaBuscou(false);
-        return;
-      }
-
-      setBuscando(true);
-      setJaBuscou(true);
-      try {
-        const lista = await buscarUsuariosPorNome(termo, meuUid);
-        setTodosResultados(lista);
-        setPaginaAtual(1);
-        setResultadosVisiveis(lista.slice(0, RESULTADOS_POR_PAGINA));
-      } catch (e) {
-        setErro("Não foi possível buscar agora. Tente novamente em alguns instantes.");
-        setTodosResultados([]);
-        setResultadosVisiveis([]);
-      } finally {
-        setBuscando(false);
-      }
-    },
-    [meuUid]
-  );
-
-  // Dispara a busca automaticamente conforme o usuário digita, com
-  // debounce de 500ms para não buscar a cada letra.
-  function handleMudarTermo(e) {
-    const valor = e.target.value;
-    setTermoBusca(valor);
-    limparAvisos();
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      executarBusca(valor);
-    }, 500);
-  }
-
-  // Scroll infinito: quando o usuário rola até perto do fim da lista,
-  // carrega a próxima página de resultados já buscados.
-  function handleScrollResultados() {
-    const el = listaResultadosRef.current;
-    if (!el) return;
-
-    const chegouAoFim = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    if (!chegouAoFim) return;
-
-    const proximaQtd = (paginaAtual + 1) * RESULTADOS_POR_PAGINA;
-    if (proximaQtd > resultadosVisiveis.length && resultadosVisiveis.length < todosResultados.length) {
-      setPaginaAtual((p) => p + 1);
-      setResultadosVisiveis(todosResultados.slice(0, proximaQtd));
+  async function handleBuscar(e) {
+    e.preventDefault();
+    limparMensagens();
+    if (!termoBusca.trim()) return;
+    setBuscando(true);
+    try {
+      const resultados = await buscarUsuariosPorNome(termoBusca, meuUid);
+      setResultadosBusca(resultados);
+    } catch {
+      setErro("Não foi possível buscar usuários agora. Tente novamente.");
+    } finally {
+      setBuscando(false);
     }
   }
 
-  function statusDoUsuario(uidAlvo) {
-    if (conexoes.some((c) => c.uid === uidAlvo)) return "conectado";
-    if (enviadosAgora.includes(uidAlvo)) return "pendente";
-    if (pendentes.some((p) => p.deUid === uidAlvo)) return "pendente";
-    return "nenhum";
-  }
-
   async function handleConectar(uidAlvo) {
-    limparAvisos();
+    limparMensagens();
     try {
       await enviarSolicitacao(meuUid, uidAlvo);
-      setEnviadosAgora((prev) => [...prev, uidAlvo]);
-      setMensagem("Solicitação enviada! A pessoa vai precisar aceitar para vocês se conectarem.");
-    } catch (e) {
-      setErro(e?.message || "Não foi possível enviar a solicitação agora.");
+      setSolicitacoesEnviadasUids((atual) => [...atual, uidAlvo]);
+      setMensagem("Solicitação enviada.");
+    } catch (err) {
+      setErro(err.message || "Não foi possível enviar a solicitação.");
     }
   }
 
   async function handleAceitar(solicitacao) {
-    limparAvisos();
+    limparMensagens();
     try {
-      await aceitarSolicitacao(solicitacao.id, solicitacao.deUid, solicitacao.paraUid);
-      setMensagem("Conexão aceita com sucesso!");
-      await Promise.all([carregarPendentes(), carregarConexoes()]);
-    } catch (e) {
-      setErro("Não foi possível aceitar agora. Tente novamente.");
+      await aceitarSolicitacao(solicitacao.id, solicitacao.deUid, meuUid);
+      setMensagem("Conexão aceita.");
+      await carregarDados();
+    } catch {
+      setErro("Não foi possível aceitar a solicitação. Tente novamente.");
     }
   }
 
-  async function handleRecusar(solicitacaoId) {
-    limparAvisos();
+  async function handleRecusar(solicitacao) {
+    limparMensagens();
     try {
-      await recusarSolicitacao(solicitacaoId);
-      setMensagem("Solicitação recusada.");
-      await carregarPendentes();
-    } catch (e) {
-      setErro("Não foi possível recusar agora. Tente novamente.");
+      await recusarSolicitacao(solicitacao.id);
+      setPendentes((atual) => atual.filter((s) => s.id !== solicitacao.id));
+    } catch {
+      setErro("Não foi possível recusar a solicitação. Tente novamente.");
     }
+  }
+
+  function jaConectadoOuPendente(uid) {
+    if (solicitacoesEnviadasUids.includes(uid)) return true;
+    if (conexoes.some((c) => c.uid === uid)) return true;
+    return false;
   }
 
   return (
@@ -217,126 +129,123 @@ export default function Conexoes({ usuario }) {
         <button className="conexoes-link-voltar" onClick={() => navigate("/")}>
           ← Voltar
         </button>
-
         <h1 className="conexoes-titulo">Conexões</h1>
         <p className="conexoes-sub">
-          Você só vê os dados de outra pessoa depois que ela aceitar sua solicitação de conexão.
+          Conecte-se com outras pessoas para acompanhar licenças em conjunto.
         </p>
+
+        {/* BUSCA */}
+        <div className="conexoes-secao">
+          <h2 className="conexoes-secao-titulo">Buscar pessoas</h2>
+          <form className="conexoes-busca-form" onSubmit={handleBuscar}>
+            <input
+              className="conexoes-input"
+              type="text"
+              placeholder="Digite um nome"
+              value={termoBusca}
+              onChange={(e) => setTermoBusca(e.target.value)}
+            />
+            <button className="conexoes-btn-buscar" type="submit" disabled={buscando}>
+              {buscando ? "Buscando..." : "Buscar"}
+            </button>
+          </form>
+
+          {resultadosBusca.length > 0 && (
+            <div className="conexoes-lista">
+              {resultadosBusca.map((usuario) => (
+                <div className="conexoes-item" key={usuario.uid}>
+                  <Avatar nome={usuario.nome} foto={usuario.foto} />
+                  <div className="conexoes-info">
+                    <p className="conexoes-nome">{usuario.nome || "Sem nome"}</p>
+                    <p className="conexoes-email">{usuario.email}</p>
+                  </div>
+                  <button
+                    className="conexoes-btn-conectar"
+                    onClick={() => handleConectar(usuario.uid)}
+                    disabled={jaConectadoOuPendente(usuario.uid)}
+                  >
+                    {jaConectadoOuPendente(usuario.uid) ? "Enviado" : "Conectar"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!buscando && termoBusca.trim() && resultadosBusca.length === 0 && (
+            <p className="conexoes-vazio">Nenhuma pessoa encontrada com esse nome.</p>
+          )}
+        </div>
 
         {erro && <p className="conexoes-erro">{erro}</p>}
         {mensagem && <p className="conexoes-mensagem">{mensagem}</p>}
 
-        {/* Seção 1: Buscar usuário */}
-        <section className="conexoes-secao">
-          <h2 className="conexoes-secao-titulo">Buscar pessoa</h2>
-          <input
-            type="text"
-            className="conexoes-input"
-            placeholder="Digite o nome da pessoa"
-            value={termoBusca}
-            onChange={handleMudarTermo}
-          />
-
-          {buscando && <p className="conexoes-loading">Buscando...</p>}
-
-          {!buscando && jaBuscou && resultadosVisiveis.length === 0 && (
-            <p className="conexoes-vazio">Nenhuma pessoa encontrada com esse nome.</p>
-          )}
-
-          {!buscando && resultadosVisiveis.length > 0 && (
-            <div
-              className="conexoes-lista conexoes-lista-rolavel"
-              ref={listaResultadosRef}
-              onScroll={handleScrollResultados}
-            >
-              {resultadosVisiveis.map((r) => {
-                const status = statusDoUsuario(r.uid);
-                const mostrarEmail = nomeEhDuplicado(r.nome);
-                return (
-                  <div className="conexoes-item" key={r.uid}>
-                    <Avatar nome={r.nome} foto={r.foto} />
-                    <div className="conexoes-info">
-                      <p className="conexoes-nome">{r.nome || "Sem nome"}</p>
-                      {mostrarEmail && (
-                        <p className="conexoes-email">{mascararEmail(r.email)}</p>
-                      )}
+        {carregandoInicial ? (
+          <p className="conexoes-loading">Carregando...</p>
+        ) : (
+          <>
+            {/* SOLICITAÇÕES PENDENTES */}
+            <div className="conexoes-secao">
+              <h2 className="conexoes-secao-titulo">Solicitações pendentes</h2>
+              {pendentes.length === 0 ? (
+                <p className="conexoes-vazio">Você não tem solicitações no momento.</p>
+              ) : (
+                <div className="conexoes-lista">
+                  {pendentes.map((solicitacao) => (
+                    <div className="conexoes-item" key={solicitacao.id}>
+                      <Avatar
+                        nome={solicitacao.remetente?.nome}
+                        foto={solicitacao.remetente?.foto}
+                      />
+                      <div className="conexoes-info">
+                        <p className="conexoes-nome">
+                          {solicitacao.remetente?.nome || "Usuário"}
+                        </p>
+                        <p className="conexoes-email">
+                          {solicitacao.remetente?.email || ""}
+                        </p>
+                      </div>
+                      <div className="conexoes-acoes-duplas">
+                        <button
+                          className="conexoes-btn-aceitar"
+                          onClick={() => handleAceitar(solicitacao)}
+                        >
+                          Aceitar
+                        </button>
+                        <button
+                          className="conexoes-btn-recusar"
+                          onClick={() => handleRecusar(solicitacao)}
+                        >
+                          Recusar
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      className="conexoes-btn-conectar"
-                      disabled={status !== "nenhum"}
-                      onClick={() => handleConectar(r.uid)}
-                    >
-                      {status === "conectado"
-                        ? "Conectado"
-                        : status === "pendente"
-                        ? "Pendente"
-                        : "Conectar"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Seção 2: Solicitações pendentes recebidas */}
-        <section className="conexoes-secao">
-          <h2 className="conexoes-secao-titulo">Solicitações recebidas</h2>
-
-          {carregandoPendentes && <p className="conexoes-loading">Carregando...</p>}
-
-          {!carregandoPendentes && pendentes.length === 0 && (
-            <p className="conexoes-vazio">Nenhuma solicitação pendente.</p>
-          )}
-
-          {!carregandoPendentes && pendentes.length > 0 && (
-            <div className="conexoes-lista">
-              {pendentes.map((p) => (
-                <div className="conexoes-item" key={p.id}>
-                  <Avatar nome={p.remetente?.nome} foto={p.remetente?.foto} />
-                  <div className="conexoes-info">
-                    <p className="conexoes-nome">{p.remetente?.nome || "Sem nome"}</p>
-                    <p className="conexoes-email">{p.remetente?.email}</p>
-                  </div>
-                  <div className="conexoes-acoes-duplas">
-                    <button className="conexoes-btn-aceitar" onClick={() => handleAceitar(p)}>
-                      Aceitar
-                    </button>
-                    <button className="conexoes-btn-recusar" onClick={() => handleRecusar(p.id)}>
-                      Recusar
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </section>
 
-        {/* Seção 3: Conexões já aprovadas */}
-        <section className="conexoes-secao">
-          <h2 className="conexoes-secao-titulo">Minhas conexões</h2>
-
-          {carregandoConexoes && <p className="conexoes-loading">Carregando...</p>}
-
-          {!carregandoConexoes && conexoes.length === 0 && (
-            <p className="conexoes-vazio">Você ainda não tem conexões.</p>
-          )}
-
-          {!carregandoConexoes && conexoes.length > 0 && (
-            <div className="conexoes-lista">
-              {conexoes.map((c) => (
-                <div className="conexoes-item" key={c.uid}>
-                  <Avatar nome={c.nome} foto={c.foto} />
-                  <div className="conexoes-info">
-                    <p className="conexoes-nome">{c.nome || "Sem nome"}</p>
-                    <p className="conexoes-email">{c.email}</p>
-                  </div>
-                  <span className="conexoes-badge-destaque">Conectado</span>
+            {/* CONEXÕES APROVADAS */}
+            <div className="conexoes-secao">
+              <h2 className="conexoes-secao-titulo">Suas conexões</h2>
+              {conexoes.length === 0 ? (
+                <p className="conexoes-vazio">Você ainda não tem conexões.</p>
+              ) : (
+                <div className="conexoes-lista">
+                  {conexoes.map((conexao) => (
+                    <div className="conexoes-item" key={conexao.uid}>
+                      <Avatar nome={conexao.nome} foto={conexao.foto} />
+                      <div className="conexoes-info">
+                        <p className="conexoes-nome">{conexao.nome || "Sem nome"}</p>
+                        <p className="conexoes-email">{conexao.email}</p>
+                      </div>
+                      <span className="conexoes-badge-destaque">Conectado</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </section>
+          </>
+        )}
       </div>
     </div>
   );

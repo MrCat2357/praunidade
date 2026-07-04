@@ -7,7 +7,7 @@ import {
   updateProfile,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./config";
 
 const googleProvider = new GoogleAuthProvider();
@@ -47,6 +47,22 @@ export async function loginWithGoogle() {
 // Enviar email de redefinição de senha
 export async function resetPassword(email) {
   await sendPasswordResetEmail(auth, email);
+}
+
+// Carrega os dados do perfil do Firestore
+export async function carregarPerfil(uid) {
+  const userRef = doc(db, "usuarios", uid);
+  const snap = await getDoc(userRef);
+  return snap.exists() ? snap.data() : null;
+}
+
+// Atualiza nome e bio no Firestore e o displayName no Firebase Auth
+export async function atualizarPerfil(uid, nome, bio) {
+  const userRef = doc(db, "usuarios", uid);
+  await updateDoc(userRef, { nome, bio });
+  if (auth.currentUser) {
+    await updateProfile(auth.currentUser, { displayName: nome });
+  }
 }
 
 // Salvar/atualizar usuário no Firestore
