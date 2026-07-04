@@ -1,0 +1,171 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { auth } from "../services/firebase/config";
+import { atualizarPerfil, carregarPerfil } from "../services/firebase/auth";
+import "./Perfil.css";
+
+const BIO_MAX = 120;
+
+function Avatar({ nome, foto }) {
+  if (foto) {
+    return (
+      <div className="perfil-avatar">
+        <img src={foto} alt={nome || "Usuário"} />
+      </div>
+    );
+  }
+  const iniciais = (nome || "?")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0].toUpperCase())
+    .join("");
+  return <div className="perfil-avatar">{iniciais || "?"}</div>;
+}
+
+export default function Perfil({ usuario }) {
+  const navigate = useNavigate();
+
+  const [nome, setNome] = useState("");
+  const [bio, setBio] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [sucesso, setSucesso] = useState("");
+  const [erro, setErro] = useState("");
+
+  // Carrega dados atuais do Firestore ao montar
+  useEffect(() => {
+    if (!usuario?.uid) return;
+    carregarPerfil(usuario.uid)
+      .then((dados) => {
+        setNome(dados?.nome || usuario.displayName || "");
+        setBio(dados?.bio || "");
+      })
+      .catch(() => {
+        // Se falhar, usa o que o Firebase Auth já tem
+        setNome(usuario.displayName || "");
+      })
+      .finally(() => setCarregando(false));
+  }, [usuario]);
+
+  function limparMensagens() {
+    setSucesso("");
+    setErro("");
+  }
+
+  async function handleSalvar(e) {
+    e.preventDefault();
+    limparMensagens();
+
+    if (!nome.trim()) return setErro("O nome não pode ficar em branco.");
+    if (bio.length > BIO_MAX)
+      return setErro(`A descrição deve ter no máximo ${BIO_MAX} caracteres.`);
+
+    setSalvando(true);
+    try {
+      await atualizarPerfil(usuario.uid, nome.trim(), bio.trim());
+      setSucesso("Perfil atualizado!");
+      // Limpa o sucesso após 3 segundos
+      setTimeout(() => setSucesso(""), 3000);
+    } catch {
+      setErro("Não foi possível salvar as alterações. Tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function handleSair() {
+    await auth.signOut();
+    navigate("/login");
+  }
+
+  if (carregando) {
+    return (
+      <div className="perfil-bg">
+        <div className="perfil-container">
+          <p style={{ color: "#3e7d52", textAlign: "center", paddingTop: 48 }}>
+            Carregando...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="perfil-bg">
+      <div className="perfil-container">
+        <button className="perfil-link-voltar" onClick={() => navigate("/")}>
+          ← Voltar
+        </button>
+
+        <h1 className="perfil-titulo">Meu perfil</h1>
+        <p className="perfil-sub">Veja e edite suas informações pessoais.</p>
+
+        <div className="perfil-card">
+          <div className="perfil-avatar-wrap">
+            <Avatar nome={nome} foto={usuario?.photoURL} />
+          </div>
+
+          <form className="perfil-form" onSubmit={handleSalvar}>
+            <div className="perfil-campo">
+              <label className="perfil-label">Nome completo</label>
+              <input
+                className="perfil-input"
+                type="text"
+                placeholder="Seu nome completo"
+                value={nome}
+                onChange={(e) => { limparMensagens(); setNome(e.target.value); }}
+              />
+            </div>
+
+            <div className="perfil-campo">
+              <label className="perfil-label">E-mail</label>
+              <input
+                className="perfil-input perfil-input-bloqueado"
+                type="email"
+                value={usuario?.email || ""}
+                readOnly
+              />
+            </div>
+
+            <div className="perfil-campo">
+              <label className="perfil-label">Descrição curta</label>
+              <textarea
+                className="perfil-textarea"
+                rows={3}
+                placeholder="Uma frase sobre você ou sua função (opcional)"
+                value={bio}
+                maxLength={BIO_MAX}
+                onChange={(e) => { limparMensagens(); setBio(e.target.value); }}
+              />
+              <p className={`perfil-contador ${bio.length >= BIO_MAX ? "perfil-contador-limite" : ""}`}>
+                {bio.length}/{BIO_MAX}
+              </p>
+            </div>
+
+            {sucesso && <p className="perfil-sucesso">{sucesso}</p>}
+            {erro && <p className="perfil-erro">{erro}</p>}
+
+            <div className="perfil-acoes">
+              <button
+                className="perfil-btn-salvar"
+                type="submit"
+                disabled={salvando}
+              >
+                {salvando ? "Salvando..." : "Salvar alterações"}
+              </button>
+              <button
+                className="perfil-btn-sair"
+                type="button"
+                onClick={handleSair}
+              >
+                Sair da conta
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

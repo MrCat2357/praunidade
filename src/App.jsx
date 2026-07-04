@@ -3,6 +3,10 @@ import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./services/firebase/config";
 import Login from "./pages/Login";
+import Conexoes from "./pages/Conexoes";
+import Perfil from "./pages/Perfil";
+import Termos from "./pages/Termos";
+import "./pages/Home.css";
 
 function RotaProtegida({ children, usuario, carregando }) {
   if (carregando) return <div className="loading">Carregando...</div>;
@@ -13,15 +17,31 @@ function RotaProtegida({ children, usuario, carregando }) {
 function Home({ usuario }) {
   const navigate = useNavigate();
   return (
-    <div style={{ padding: 32, color: "#f1f5f9", fontFamily: "sans-serif" }}>
-      <h1>Olá, {usuario?.displayName || "usuário"}!</h1>
-      <p>PraUnidade — em construção.</p>
-      <button
-        onClick={() => auth.signOut().then(() => navigate("/login"))}
-        style={{ marginTop: 16, padding: "10px 20px", cursor: "pointer" }}
-      >
-        Sair
-      </button>
+    <div className="home-bg">
+      <div className="home-card">
+        <h1 className="home-saudacao">Olá, {usuario?.displayName || "usuário"}!</h1>
+        <p className="home-sub">PraUnidade — em construção.</p>
+        <div className="home-acoes">
+          <button
+            className="home-btn-primario"
+            onClick={() => navigate("/conexoes")}
+          >
+            Conexões
+          </button>
+          <button
+            className="home-btn-primario"
+            onClick={() => navigate("/perfil")}
+          >
+            Meu perfil
+          </button>
+          <button
+            className="home-btn-secundario"
+            onClick={() => auth.signOut().then(() => navigate("/login"))}
+          >
+            Sair
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -46,11 +66,28 @@ export default function App() {
           carregando ? null : usuario ? <Navigate to="/" replace /> : <Login />
         }
       />
+      <Route path="/termos" element={<Termos />} />
       <Route
         path="/"
         element={
           <RotaProtegida usuario={usuario} carregando={carregando}>
             <Home usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/conexoes"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Conexoes usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/perfil"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Perfil usuario={usuario} />
           </RotaProtegida>
         }
       />
