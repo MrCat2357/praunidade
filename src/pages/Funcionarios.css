@@ -1,0 +1,222 @@
+/* Funcionarios.css */
+
+.func-bg {
+  min-height: 100vh;
+  background-color: #eaf3ec;
+  padding: 24px 16px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.func-container {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.func-link-voltar {
+  display: inline-block;
+  background: none;
+  border: none;
+  color: #2e4374;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 16px;
+  padding: 4px 0;
+}
+
+.func-link-voltar:hover {
+  text-decoration: underline;
+}
+
+.func-titulo {
+  font-size: 24px;
+  font-weight: 700;
+  color: #123320;
+  margin: 0 0 4px 0;
+}
+
+.func-sub {
+  font-size: 15px;
+  color: #3e7d52;
+  margin: 0 0 24px 0;
+}
+
+.func-erro {
+  font-size: 14px;
+  color: #501313;
+  background-color: #fcebeb;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.func-loading {
+  font-size: 15px;
+  color: #3e7d52;
+  text-align: center;
+  padding: 48px 0;
+}
+
+.func-vazio {
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 14px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.func-vazio-icone {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.func-vazio-texto {
+  font-size: 16px;
+  color: #3e7d52;
+  margin: 0;
+}
+
+.func-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.func-card {
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 14px;
+  padding: 18px 16px;
+}
+
+.func-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.func-card-nome {
+  font-size: 17px;
+  font-weight: 700;
+  color: #123320;
+  margin: 0;
+}
+
+.func-card-matricula {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5c4006;
+  margin: 4px 0 0 0;
+}
+
+.func-btn-editar {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background-color: transparent;
+  color: #1b2a4a;
+  border: 1.5px solid #2e4374;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.func-btn-editar:hover {
+  background-color: #dce6f7;
+}
+
+.func-sem-licencas {
+  font-size: 14px;
+  color: #8aa893;
+  margin: 0;
+}
+
+.func-lista-licencas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid #eaf3ec;
+  padding-top: 10px;
+}
+
+.func-item-licenca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #1f4d2e;
+  padding: 6px 0;
+  flex-wrap: wrap;
+}
+
+.func-item-cid {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5c4006;
+  background-color: #fbefd3;
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+
+.func-item-licenca a {
+  font-size: 13px;
+  color: #2e4374;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.func-item-licenca a:hover {
+  text-decoration: underline;
+}
+
+/* Edição inline */
+.func-edicao {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.func-input-edicao {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 10px;
+  color: #123320;
+  box-sizing: border-box;
+}
+
+.func-edicao-acoes {
+  display: flex;
+  gap: 8px;
+}
+
+.func-btn-salvar-edicao {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  background-color: #3e7d52;
+  color: #eaf6ed;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.func-btn-cancelar-edicao {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  background-color: transparent;
+  color: #1b2a4a;
+  border: 1.5px solid #2e4374;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 44px;
+}

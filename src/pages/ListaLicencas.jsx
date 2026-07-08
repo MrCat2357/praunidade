@@ -40,7 +40,8 @@ export default function ListaLicencas({ usuario }) {
     try {
       const lista = await listarLicencas(usuario.uid);
       setLicencas(lista);
-    } catch {
+    } catch (err) {
+      console.error("Erro ao carregar licenças:", err);
       setErro("Não foi possível carregar as licenças agora.");
     } finally {
       setCarregando(false);

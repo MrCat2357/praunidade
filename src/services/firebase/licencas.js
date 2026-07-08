@@ -21,8 +21,9 @@ import { db, storage } from "./config";
 // ─── FUNCIONÁRIOS ────────────────────────────────────────────────────────────
 
 // Busca funcionário pelo nome exato + donoUid.
-// Se não existir, cria e retorna o novo id.
-export async function buscarOuCriarFuncionario(nome, donoUid) {
+// Se não existir, cria com a matrícula informada.
+// Se existir mas ainda não tinha matrícula, sincroniza com a que veio agora.
+export async function buscarOuCriarFuncionario(nome, matricula, donoUid) {
   const nomeLimpo = nome.trim();
   const q = query(
     collection(db, "funcionarios"),
@@ -30,10 +31,19 @@ export async function buscarOuCriarFuncionario(nome, donoUid) {
     where("nome", "==", nomeLimpo)
   );
   const snap = await getDocs(q);
-  if (!snap.empty) return snap.docs[0].id;
+
+  if (!snap.empty) {
+    const docExistente = snap.docs[0];
+    const existente = docExistente.data();
+    if (matricula && !existente.matricula) {
+      await updateDoc(doc(db, "funcionarios", docExistente.id), { matricula });
+    }
+    return docExistente.id;
+  }
 
   const novo = await addDoc(collection(db, "funcionarios"), {
     nome: nomeLimpo,
+    matricula: matricula || "",
     donoUid,
     criadoEm: serverTimestamp(),
   });
@@ -49,6 +59,26 @@ export async function listarFuncionarios(donoUid) {
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// Edita nome e/ou matrícula de um funcionário existente
+export async function editarFuncionario(funcionarioId, dados) {
+  await updateDoc(doc(db, "funcionarios", funcionarioId), {
+    nome: dados.nome.trim(),
+    matricula: dados.matricula || "",
+  });
+}
+
+// Lista os CIDs já usados pelo usuário, sem repetição, em ordem alfabética
+export async function listarCidsUnicos(donoUid) {
+  const q = query(collection(db, "licencas"), where("donoUid", "==", donoUid));
+  const snap = await getDocs(q);
+  const cids = new Set();
+  snap.docs.forEach((d) => {
+    const cid = d.data().cid;
+    if (cid) cids.add(cid);
+  });
+  return Array.from(cids).sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
 // ─── LICENÇAS ─────────────────────────────────────────────────────────────────

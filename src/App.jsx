@@ -9,6 +9,7 @@ import Termos from "./pages/Termos";
 import NovaLicenca from "./pages/NovaLicenca";
 import ListaLicencas from "./pages/ListaLicencas";
 import "./pages/Home.css";
+import Funcionarios from "./pages/Funcionarios";
 
 function RotaProtegida({ children, usuario, carregando }) {
   if (carregando) return <div className="loading">Carregando...</div>;
@@ -26,6 +27,9 @@ function Home({ usuario }) {
         <div className="home-acoes">
           <button className="home-btn-primario" onClick={() => navigate("/licencas")}>
             Acompanhamento INSS
+          </button>
+          <button className="home-btn-primario" onClick={() => navigate("/funcionarios")}>
+            Funcionários
           </button>
           <button className="home-btn-primario" onClick={() => navigate("/conexoes")}>
             Conexões
@@ -103,6 +107,14 @@ export default function App() {
         element={
           <RotaProtegida usuario={usuario} carregando={carregando}>
             <ListaLicencas usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/funcionarios"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Funcionarios usuario={usuario} />
           </RotaProtegida>
         }
       />
