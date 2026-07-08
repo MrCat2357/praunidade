@@ -137,6 +137,29 @@ export async function ocultarLicenca(licencaId) {
   await updateDoc(doc(db, "licencas", licencaId), { oculto: true });
 }
 
+// ─── ADICIONE ESTE TRECHO EM src/services/firebase/licencas.js ────────────
+// Coloque logo abaixo da função ocultarLicenca (ou em qualquer lugar da
+// seção "LICENÇAS"). Não é para substituir o arquivo inteiro, é só uma
+// função nova.
+
+// Marca encaminhadoINSS: true em todas as licenças de um funcionário
+// para um CID específico. Usado quando o total de dias na janela de
+// 60 dias ultrapassa 15 e o funcionário é de fato encaminhado ao INSS.
+export async function marcarEncaminhadoINSS(funcionarioId, cid) {
+  const q = query(
+    collection(db, "licencas"),
+    where("funcionarioId", "==", funcionarioId),
+    where("cid", "==", cid)
+  );
+  const snap = await getDocs(q);
+
+  const atualizacoes = snap.docs.map((d) =>
+    updateDoc(doc(db, "licencas", d.id), { encaminhadoINSS: true })
+  );
+
+  await Promise.all(atualizacoes);
+}
+
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
 
 // Faz upload do arquivo e retorna a URL pública
