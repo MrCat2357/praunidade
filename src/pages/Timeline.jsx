@@ -17,10 +17,21 @@
 //   passado e 60 dias no futuro, centrada em hoje.
 // - Um marcador vertical "Hoje" foi adicionado para orientar
 //   visualmente o que já passou e o que ainda está por vir.
+//
+// Atualização (Prompt 5.4):
+// - Quando o status do grupo é "encaminhado" (pill cinza), o próprio
+//   pill agora é clicável e abre um modal de confirmação para
+//   "Restaurar alerta do INSS", que desfaz a marcação de
+//   encaminhadoINSS em todas as licenças do grupo e faz o status
+//   voltar a ser calculado normalmente pelos dias reais de
+//   afastamento.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMonitorINSS } from "../hooks/useMonitorINSS";
-import { marcarEncaminhadoINSS } from "../services/firebase/licencas";
+import {
+  marcarEncaminhadoINSS,
+  desfazerEncaminhamentoINSS,
+} from "../services/firebase/licencas";
 import "./Timeline.css";
 
 const JANELA_DIAS = 60;
@@ -67,6 +78,13 @@ export default function Timeline({ usuario }) {
   const [confirmandoEncaminhamento, setConfirmandoEncaminhamento] =
     useState(false);
   const [enviandoEncaminhamento, setEnviandoEncaminhamento] = useState(false);
+
+  // Modal de confirmação de "restaurar alerta do INSS" (desfazer o
+  // encaminhamento e voltar a calcular o status pelos dias reais)
+  const [grupoRestaurarSelecionado, setGrupoRestaurarSelecionado] =
+    useState(null);
+  const [confirmandoRestauracao, setConfirmandoRestauracao] = useState(false);
+  const [restaurando, setRestaurando] = useState(false);
 
   const hoje = inicioDoDia(new Date());
 
@@ -120,6 +138,37 @@ export default function Timeline({ usuario }) {
       );
     } finally {
       setEnviandoEncaminhamento(false);
+    }
+  }
+
+  function abrirModalRestaurar(item) {
+    setGrupoRestaurarSelecionado(item);
+    setConfirmandoRestauracao(false);
+  }
+
+  function fecharModalRestaurar() {
+    setGrupoRestaurarSelecionado(null);
+    setConfirmandoRestauracao(false);
+  }
+
+  async function confirmarRestauracao() {
+    if (!grupoRestaurarSelecionado) return;
+    setRestaurando(true);
+    try {
+      await desfazerEncaminhamentoINSS(
+        grupoRestaurarSelecionado.funcionarioId,
+        grupoRestaurarSelecionado.cid,
+        usuario?.uid
+      );
+      await recarregar();
+      fecharModalRestaurar();
+    } catch (err) {
+      console.error("Erro ao restaurar alerta do INSS:", err);
+      alert(
+        "Não foi possível salvar agora. Por favor, tente novamente em instantes."
+      );
+    } finally {
+      setRestaurando(false);
     }
   }
 
@@ -243,9 +292,22 @@ export default function Timeline({ usuario }) {
                       )}
                     </div>
                     <div className="timeline-linha-info">
-                      <span className={`timeline-pill status-${item.status}`}>
-                        {ROTULOS_STATUS[item.status]}
-                      </span>
+                      {item.status === "encaminhado" ? (
+                        <button
+                          type="button"
+                          className={`timeline-pill timeline-pill-btn status-${item.status}`}
+                          onClick={() => abrirModalRestaurar(item)}
+                          title="Restaurar alerta do INSS"
+                        >
+                          {ROTULOS_STATUS[item.status]}
+                        </button>
+                      ) : (
+                        <span
+                          className={`timeline-pill status-${item.status}`}
+                        >
+                          {ROTULOS_STATUS[item.status]}
+                        </span>
+                      )}
                       <span className="timeline-dias">
                         {item.diasNaJanela}{" "}
                         {item.diasNaJanela === 1 ? "dia" : "dias"} em 60
@@ -413,6 +475,76 @@ export default function Timeline({ usuario }) {
                     {enviandoEncaminhamento
                       ? "Salvando..."
                       : "Sim, já foi encaminhado"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação: restaurar alerta do INSS (desfazer o
+          encaminhamento e voltar a calcular o status pelos dias reais) */}
+      {grupoRestaurarSelecionado && (
+        <div className="timeline-modal-fundo" onClick={fecharModalRestaurar}>
+          <div
+            className="timeline-modal-conteudo"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="timeline-modal-titulo">
+              {grupoRestaurarSelecionado.nomeFunc}
+            </h2>
+            <p className="timeline-modal-linha">
+              <strong>CID:</strong> {grupoRestaurarSelecionado.cid}
+            </p>
+            <p className="timeline-modal-texto">
+              Restaurar alerta do INSS? Esta ação remove a marcação de "já
+              encaminhado" e faz o status deste funcionário voltar a ser
+              calculado normalmente pelos dias reais de afastamento na
+              janela de 60 dias — podendo ficar verde, amarelo, laranja ou
+              vermelho, conforme o caso.
+            </p>
+
+            {!confirmandoRestauracao ? (
+              <div className="timeline-modal-acoes">
+                <button
+                  type="button"
+                  className="timeline-modal-btn-secundario"
+                  onClick={fecharModalRestaurar}
+                >
+                  Fechar
+                </button>
+                <button
+                  type="button"
+                  className="timeline-modal-btn-primario"
+                  onClick={() => setConfirmandoRestauracao(true)}
+                >
+                  Restaurar alerta do INSS
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="timeline-modal-texto timeline-modal-texto-confirma">
+                  Tem certeza? O status real, calculado pelos dias de
+                  afastamento na janela de 60 dias, vai voltar a aparecer
+                  para este funcionário e este CID.
+                </p>
+                <div className="timeline-modal-acoes">
+                  <button
+                    type="button"
+                    className="timeline-modal-btn-secundario"
+                    onClick={() => setConfirmandoRestauracao(false)}
+                    disabled={restaurando}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="timeline-modal-btn-primario"
+                    onClick={confirmarRestauracao}
+                    disabled={restaurando}
+                  >
+                    {restaurando ? "Restaurando..." : "Sim, restaurar alerta"}
                   </button>
                 </div>
               </>

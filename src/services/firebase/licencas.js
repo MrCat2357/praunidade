@@ -186,6 +186,37 @@ export async function marcarEncaminhadoINSS(funcionarioId, cid, donoUid) {
   await Promise.all(atualizacoes);
 }
 
+// Desfaz o encaminhamento ao INSS: seta encaminhadoINSS: false em todas
+// as licenças de um funcionário para um CID específico. É o inverso
+// exato de marcarEncaminhadoINSS, usado quando o encaminhamento foi
+// marcado por engano ou quando o funcionário teve uma recaída e o
+// status precisa voltar a ser calculado normalmente pelos dias reais
+// de afastamento na janela de 60 dias.
+//
+// IMPORTANTE: mesma pegadinha do Firestore de marcarEncaminhadoINSS —
+// a query PRECISA filtrar também por donoUid além de funcionarioId e
+// cid. Em consultas de lista (getDocs de uma query), o Firestore só
+// permite a operação se a PRÓPRIA QUERY já restringir os resultados
+// de forma comprovável; ele não filtra documento por documento depois
+// de buscar. Sem o where("donoUid", "==", donoUid), a consulta inteira
+// é negada com "Missing or insufficient permissions", mesmo que todos
+// os documentos retornados realmente pertençam ao usuário.
+export async function desfazerEncaminhamentoINSS(funcionarioId, cid, donoUid) {
+  const q = query(
+    collection(db, "licencas"),
+    where("donoUid", "==", donoUid),
+    where("funcionarioId", "==", funcionarioId),
+    where("cid", "==", cid)
+  );
+  const snap = await getDocs(q);
+
+  const atualizacoes = snap.docs.map((d) =>
+    updateDoc(doc(db, "licencas", d.id), { encaminhadoINSS: false })
+  );
+
+  await Promise.all(atualizacoes);
+}
+
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
 
 // Faz upload do arquivo e retorna a URL pública

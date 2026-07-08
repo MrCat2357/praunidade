@@ -152,6 +152,29 @@
   white-space: nowrap;
 }
 
+/* Variante clicável do pill, usada quando o status é "encaminhado" e o
+   próprio pill funciona como botão para abrir o modal de "Restaurar
+   alerta do INSS". Mantém a aparência do pill normal, só troca o
+   cursor e adiciona um leve feedback visual ao passar o mouse/focar. */
+.timeline-pill-btn {
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.15s;
+}
+
+.timeline-pill-btn:hover {
+  filter: brightness(0.94);
+}
+
+.timeline-pill-btn:active {
+  transform: scale(0.97);
+}
+
+.timeline-pill-btn:focus-visible {
+  outline: 2px solid #2e4374;
+  outline-offset: 2px;
+}
+
 /* Badge INSS agora é um botão clicável */
 .timeline-badge-inss {
   font-size: 14px;
