@@ -113,6 +113,20 @@ export async function listarLicencas(donoUid) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// Lista SOMENTE as licenças ocultas do usuário, ordenadas por
+// dataInicio decrescente. Usado na tela de "licenças ocultas" para
+// permitir restaurar um registro escondido por engano.
+export async function listarLicencasOcultas(donoUid) {
+  const q = query(
+    collection(db, "licencas"),
+    where("donoUid", "==", donoUid),
+    where("oculto", "==", true),
+    orderBy("dataInicio", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 // Busca uma licença específica pelo id
 export async function buscarLicenca(licencaId) {
   const snap = await getDoc(doc(db, "licencas", licencaId));
@@ -137,17 +151,29 @@ export async function ocultarLicenca(licencaId) {
   await updateDoc(doc(db, "licencas", licencaId), { oculto: true });
 }
 
-// ─── ADICIONE ESTE TRECHO EM src/services/firebase/licencas.js ────────────
-// Coloque logo abaixo da função ocultarLicenca (ou em qualquer lugar da
-// seção "LICENÇAS"). Não é para substituir o arquivo inteiro, é só uma
-// função nova.
+// Reverte uma licença ocultada, tornando-a visível novamente nas
+// listagens padrão (listarLicencas) e na Timeline.
+export async function restaurarLicenca(licencaId) {
+  await updateDoc(doc(db, "licencas", licencaId), { oculto: false });
+}
 
 // Marca encaminhadoINSS: true em todas as licenças de um funcionário
 // para um CID específico. Usado quando o total de dias na janela de
 // 60 dias ultrapassa 15 e o funcionário é de fato encaminhado ao INSS.
-export async function marcarEncaminhadoINSS(funcionarioId, cid) {
+//
+// IMPORTANTE: a query precisa filtrar também por donoUid. As regras do
+// Firestore exigem `resource.data.donoUid == request.auth.uid` para
+// update, e em consultas de lista (getDocs de uma query, diferente de
+// um getDoc único) o Firestore só permite a operação se a PRÓPRIA
+// QUERY já restringir os resultados de forma comprovável — ele não
+// filtra documento por documento depois de buscar. Sem o
+// where("donoUid", "==", donoUid) aqui, a consulta inteira é negada
+// com "Missing or insufficient permissions", mesmo que todos os
+// documentos retornados realmente pertençam ao usuário.
+export async function marcarEncaminhadoINSS(funcionarioId, cid, donoUid) {
   const q = query(
     collection(db, "licencas"),
+    where("donoUid", "==", donoUid),
     where("funcionarioId", "==", funcionarioId),
     where("cid", "==", cid)
   );

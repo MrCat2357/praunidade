@@ -8,6 +8,7 @@ import Perfil from "./pages/Perfil";
 import Termos from "./pages/Termos";
 import NovaLicenca from "./pages/NovaLicenca";
 import ListaLicencas from "./pages/ListaLicencas";
+import Timeline from "./pages/Timeline";
 import "./pages/Home.css";
 import Funcionarios from "./pages/Funcionarios";
 
@@ -25,8 +26,11 @@ function Home({ usuario }) {
         <h1 className="home-saudacao">Olá, {usuario?.displayName || "usuário"}!</h1>
         <p className="home-sub">PraUnidade — em construção.</p>
         <div className="home-acoes">
-          <button className="home-btn-primario" onClick={() => navigate("/licencas")}>
+          <button className="home-btn-primario" onClick={() => navigate("/timeline")}>
             Acompanhamento INSS
+          </button>
+          <button className="home-btn-primario" onClick={() => navigate("/licencas")}>
+            Licenças
           </button>
           <button className="home-btn-primario" onClick={() => navigate("/funcionarios")}>
             Funcionários
@@ -107,6 +111,14 @@ export default function App() {
         element={
           <RotaProtegida usuario={usuario} carregando={carregando}>
             <ListaLicencas usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/timeline"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Timeline usuario={usuario} />
           </RotaProtegida>
         }
       />

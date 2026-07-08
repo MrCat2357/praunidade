@@ -4,7 +4,13 @@
 // funcionário + CID, e aplica a regra dos 60 dias (verificaRegraINSS)
 // em cada grupo para determinar o status de cada combinação
 // funcionário+CID.
-
+//
+// Atualização (Prompt 5.2):
+// - Cada item retornado agora também inclui "licencasDetalhe": a lista
+//   completa das licenças originais daquele grupo, já convertidas para
+//   Date puro (dataInicio/dataFim) e com id + arquivoURL. Isso é usado
+//   pela Timeline para desenhar os blocos individuais dentro da barra
+//   e para preencher o modal de detalhes de cada licença.
 import { useState, useEffect, useCallback } from "react";
 import { listarLicencas } from "../services/firebase/licencas";
 import { verificaRegraINSS } from "../utils/regraINSS";
@@ -43,7 +49,6 @@ export function useMonitorINSS(donoUid) {
       // Agrupa por funcionarioId + cid. A chave combina os dois para que
       // o mesmo funcionário com CIDs diferentes NÃO seja somado junto.
       const grupos = new Map();
-
       for (const licenca of licencas) {
         const chave = `${licenca.funcionarioId}::${licenca.cid}`;
         if (!grupos.has(chave)) {
@@ -58,7 +63,6 @@ export function useMonitorINSS(donoUid) {
       }
 
       const resultado = [];
-
       for (const grupo of grupos.values()) {
         // Converte as licenças do grupo para o formato que
         // verificaRegraINSS espera: { dataInicio: Date, dataFim: Date }
@@ -73,9 +77,22 @@ export function useMonitorINSS(donoUid) {
         // INSS, o grupo inteiro passa a ter status "encaminhado" — mesmo
         // que os dias somados ainda ultrapassem 15. Só sai desse estado
         // manualmente (não há lógica automática para reverter).
-        const jaEncaminhado = grupo.licencas.some((l) => l.encaminhadoINSS === true);
+        const jaEncaminhado = grupo.licencas.some(
+          (l) => l.encaminhadoINSS === true
+        );
+        const status = jaEncaminhado
+          ? "encaminhado"
+          : calcularStatus(maiorSomaEm60Dias);
 
-        const status = jaEncaminhado ? "encaminhado" : calcularStatus(maiorSomaEm60Dias);
+        // Lista detalhada das licenças originais do grupo, já com Date
+        // puro em dataInicio/dataFim, para a Timeline desenhar os
+        // blocos individuais e alimentar o modal de detalhes.
+        const licencasDetalhe = grupo.licencas.map((l) => ({
+          id: l.id,
+          dataInicio: paraDate(l.dataInicio),
+          dataFim: paraDate(l.dataFim),
+          arquivoURL: l.arquivoURL || "",
+        }));
 
         resultado.push({
           funcionarioId: grupo.funcionarioId,
@@ -84,6 +101,7 @@ export function useMonitorINSS(donoUid) {
           diasNaJanela: maiorSomaEm60Dias,
           status,
           encaminhadoINSS: jaEncaminhado,
+          licencasDetalhe,
         });
       }
 
@@ -109,7 +127,6 @@ export function useMonitorINSS(donoUid) {
   }, [carregar]);
 
   // Expõe também uma função de recarregar, útil para chamar depois de
-  // marcar um funcionário como encaminhado ao INSS (ver Prompt 4.2,
-  // função marcarEncaminhadoINSS em licencas.js).
+  // marcar um funcionário como encaminhado ao INSS.
   return { funcionarios, carregando, erro, recarregar: carregar };
 }

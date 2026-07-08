@@ -1,0 +1,451 @@
+/* src/pages/Timeline.css */
+
+.timeline-bg {
+  min-height: 100vh;
+  background-color: #eaf3ec;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.timeline-card {
+  width: 100%;
+  max-width: 780px;
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 20px;
+  padding: 28px 24px 32px;
+}
+
+.timeline-link-voltar {
+  display: inline-block;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #2e4374;
+  cursor: pointer;
+}
+
+.timeline-link-voltar:hover {
+  text-decoration: underline;
+}
+
+.timeline-titulo {
+  font-size: 22px;
+  font-weight: 700;
+  color: #123320;
+  margin: 0 0 8px 0;
+}
+
+.timeline-periodo {
+  font-size: 16px;
+  color: #3e7d52;
+  margin: 0 0 24px 0;
+}
+
+.timeline-periodo strong {
+  color: #1f4d2e;
+}
+
+.timeline-carregando,
+.timeline-erro {
+  font-size: 16px;
+  color: #3e7d52;
+  text-align: center;
+  padding: 32px 8px;
+}
+
+.timeline-erro {
+  color: #a13d3d;
+}
+
+/* Estado vazio */
+
+.timeline-vazio {
+  text-align: center;
+  padding: 40px 16px;
+  background-color: #eaf3ec;
+  border: 1.5px dashed #9fc9ac;
+  border-radius: 16px;
+}
+
+.timeline-vazio-titulo {
+  font-size: 17px;
+  font-weight: 700;
+  color: #123320;
+  margin: 0 0 8px 0;
+}
+
+.timeline-vazio-sub {
+  font-size: 15px;
+  color: #3e7d52;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Lista de linhas */
+
+.timeline-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.timeline-linha {
+  border: 1.5px solid #9fc9ac;
+  border-radius: 14px;
+  padding: 14px 16px;
+  background-color: #ffffff;
+}
+
+.timeline-linha-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.timeline-linha-nome-grupo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.timeline-nome {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.timeline-cid {
+  font-size: 15px;
+  color: #123320;
+  background-color: #eaf3ec;
+  border: 1px solid #9fc9ac;
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+
+.timeline-linha-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.timeline-dias {
+  font-size: 15px;
+  color: #123320;
+  white-space: nowrap;
+}
+
+.timeline-pill {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Badge INSS agora é um botão clicável */
+.timeline-badge-inss {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: #c23b3b;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 999px;
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 32px;
+  transition: background-color 0.2s;
+}
+
+.timeline-badge-inss:hover {
+  background-color: #a13030;
+}
+
+/* Barra da janela de 120 dias (60 no passado + 60 no futuro) */
+
+.timeline-barra-trilha {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  background-color: #eaf3ec;
+  border: 1px solid #9fc9ac;
+  border-radius: 999px;
+  overflow: visible;
+  /* margem inferior para caber o rótulo "Hoje" abaixo da barra */
+  margin-bottom: 20px;
+}
+
+/* Blocos individuais de licença, posicionados proporcionalmente
+   dentro da barra de 120 dias */
+.timeline-bloco-licenca {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  min-width: 6px;
+  transition: filter 0.15s, transform 0.15s;
+  /* garante que os blocos não vazem para fora dos cantos arredondados
+     da trilha, já que agora ela tem overflow: visible por causa do
+     marcador de "Hoje" */
+  clip-path: inset(0 round 999px);
+}
+
+.timeline-bloco-licenca:hover {
+  filter: brightness(0.92);
+  transform: scaleY(1.08);
+}
+
+.timeline-bloco-licenca:focus-visible {
+  outline: 2px solid #2e4374;
+  outline-offset: 2px;
+}
+
+/* Marcador vertical "Hoje": uma linha azul-marinho atravessando a
+   barra, com um rótulo logo abaixo indicando o dia de hoje. */
+.timeline-marcador-hoje {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background-color: #1b2a4a;
+  transform: translateX(-1px);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.timeline-marcador-hoje-rotulo {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1b2a4a;
+  background-color: #ffffff;
+  border: 1px solid #1b2a4a;
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* Cores por status */
+
+.status-seguro {
+  color: #1f4d2e;
+}
+.timeline-pill.status-seguro {
+  background-color: #dcefe1;
+  color: #1f4d2e;
+}
+.timeline-bloco-licenca.status-seguro {
+  background-color: #3e7d52;
+}
+
+.status-alerta {
+  color: #8a6d00;
+}
+.timeline-pill.status-alerta {
+  background-color: #fbefd3;
+  color: #5c4006;
+}
+.timeline-bloco-licenca.status-alerta {
+  background-color: #d9a916;
+}
+
+.status-atencao {
+  color: #a35b12;
+}
+.timeline-pill.status-atencao {
+  background-color: #fbe3cf;
+  color: #7a3d0e;
+}
+.timeline-bloco-licenca.status-atencao {
+  background-color: #e8822f;
+}
+
+.status-inss {
+  color: #a13d3d;
+}
+.timeline-pill.status-inss {
+  background-color: #f8d9d9;
+  color: #8a2a2a;
+}
+.timeline-bloco-licenca.status-inss {
+  background-color: #c23b3b;
+}
+
+.status-encaminhado {
+  color: #555555;
+}
+.timeline-pill.status-encaminhado {
+  background-color: #e5e5e5;
+  color: #444444;
+}
+.timeline-bloco-licenca.status-encaminhado {
+  background-color: #9a9a9a;
+}
+
+/* ─── MODAIS ────────────────────────────────────────────────────────────── */
+
+.timeline-modal-fundo {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(18, 51, 32, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.timeline-modal-conteudo {
+  width: 100%;
+  max-width: 420px;
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 18px;
+  padding: 24px 22px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.timeline-modal-titulo {
+  font-size: 20px;
+  font-weight: 700;
+  color: #123320;
+  margin: 0 0 14px 0;
+}
+
+.timeline-modal-linha {
+  font-size: 16px;
+  color: #123320;
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.timeline-modal-linha strong {
+  color: #1f4d2e;
+}
+
+.timeline-modal-texto {
+  font-size: 16px;
+  color: #123320;
+  line-height: 1.55;
+  margin: 8px 0 4px 0;
+}
+
+.timeline-modal-texto-confirma {
+  background-color: #fbefd3;
+  color: #5c4006;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 14px;
+}
+
+.timeline-modal-link-arquivo {
+  display: inline-block;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2e4374;
+  text-decoration: underline;
+}
+
+.timeline-modal-sem-arquivo {
+  font-size: 15px;
+  color: #6b6b6b;
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
+
+.timeline-modal-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.timeline-modal-btn-primario,
+.timeline-modal-btn-secundario {
+  flex: 1 1 140px;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.timeline-modal-btn-primario {
+  background-color: #3e7d52;
+  color: #eaf6ed;
+  border: none;
+}
+
+.timeline-modal-btn-primario:hover {
+  background-color: #1f4d2e;
+}
+
+.timeline-modal-btn-primario:disabled {
+  background-color: #9fc9ac;
+  cursor: not-allowed;
+}
+
+.timeline-modal-btn-secundario {
+  background-color: transparent;
+  color: #1b2a4a;
+  border: 1.5px solid #2e4374;
+}
+
+.timeline-modal-btn-secundario:hover {
+  background-color: #dce6f7;
+}
+
+.timeline-modal-btn-secundario:disabled {
+  border-color: #b7c3dd;
+  color: #b7c3dd;
+  cursor: not-allowed;
+}
+
+/* Responsivo */
+
+@media (max-width: 480px) {
+  .timeline-card {
+    padding: 20px 16px 24px;
+  }
+
+  .timeline-linha-cabecalho {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .timeline-linha-info {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .timeline-modal-acoes {
+    flex-direction: column;
+  }
+
+  .timeline-modal-btn-primario,
+  .timeline-modal-btn-secundario {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}

@@ -65,8 +65,27 @@
 .lista-sub {
   font-size: 15px;
   color: #3e7d52;
-  margin: 0 0 24px 0;
+  margin: 0 0 16px 0;
   line-height: 1.5;
+}
+
+/* Botão para alternar entre licenças ativas e ocultas */
+.lista-btn-alternar-ocultas {
+  display: inline-block;
+  background: none;
+  border: 1.5px solid #9fc9ac;
+  color: #1f4d2e;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: background-color 0.2s;
+}
+
+.lista-btn-alternar-ocultas:hover {
+  background-color: #dcefe1;
 }
 
 /* Cards de licença */
@@ -179,6 +198,30 @@
 }
 
 .lista-btn-ocultar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Botão de restaurar, na tela de licenças ocultas */
+.lista-btn-restaurar {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  background-color: #3e7d52;
+  color: #eaf6ed;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background-color 0.2s;
+}
+
+.lista-btn-restaurar:hover:not(:disabled) {
+  background-color: #1f4d2e;
+}
+
+.lista-btn-restaurar:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
