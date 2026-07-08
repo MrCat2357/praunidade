@@ -44,7 +44,44 @@
 .timeline-periodo {
   font-size: 16px;
   color: #3e7d52;
-  margin: 0 0 24px 0;
+  margin: 0;
+}
+
+/* Cabeçalho: título + período à esquerda, botão "Exportar PDF" à
+   direita. Quebra para coluna em telas estreitas. */
+.timeline-cabecalho-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.timeline-btn-exportar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #2e4374;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background-color 0.2s;
+}
+
+.timeline-btn-exportar:hover {
+  background-color: #1b2a4a;
+}
+
+.timeline-btn-exportar:disabled {
+  background-color: #b7c3dd;
+  cursor: not-allowed;
 }
 
 .timeline-periodo strong {
@@ -460,6 +497,16 @@
   .timeline-linha-info {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .timeline-cabecalho-topo {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .timeline-btn-exportar {
+    width: 100%;
+    justify-content: center;
   }
 
   .timeline-modal-acoes {

@@ -25,14 +25,32 @@
 //   encaminhadoINSS em todas as licenças do grupo e faz o status
 //   voltar a ser calculado normalmente pelos dias reais de
 //   afastamento.
+//
+// Atualização (Etapa 6 — Entrega A):
+// - Botão "Exportar PDF": gera um PDF (client-side, com jsPDF +
+//   jspdf-autotable) com uma tabela de funcionário, CID, status e dias
+//   na janela de 60 dias, usando cores equivalentes às do pill de
+//   status da tela.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useMonitorINSS } from "../hooks/useMonitorINSS";
 import {
   marcarEncaminhadoINSS,
   desfazerEncaminhamentoINSS,
 } from "../services/firebase/licencas";
 import "./Timeline.css";
+
+// Cores em RGB equivalentes às usadas nos pills/blocos do Timeline.css,
+// para colorir a coluna de status dentro do PDF exportado.
+const CORES_STATUS_PDF = {
+  seguro: [62, 125, 82], // #3e7d52
+  alerta: [217, 169, 22], // #d9a916
+  atencao: [232, 130, 47], // #e8822f
+  inss: [194, 59, 59], // #c23b3b
+  encaminhado: [154, 154, 154], // #9a9a9a
+};
 
 const JANELA_DIAS = 60;
 const SPAN_DIAS = JANELA_DIAS * 2; // 60 dias antes + 60 dias depois de hoje
@@ -172,6 +190,70 @@ export default function Timeline({ usuario }) {
     }
   }
 
+  // Gera e baixa um PDF com uma tabela do estado atual da tela: cada
+  // funcionário+CID visível, seu status (com a cor equivalente ao
+  // pill), os dias somados na janela de 60 dias e o período analisado.
+  // Roda 100% no navegador (sem backend), usando jsPDF + jspdf-autotable.
+  function exportarPDF() {
+    const documento = new jsPDF({ orientation: "landscape", unit: "pt" });
+
+    documento.setFontSize(18);
+    documento.setTextColor(18, 51, 32); // #123320
+    documento.text("Acompanhamento INSS", 40, 40);
+
+    documento.setFontSize(10);
+    documento.setTextColor(90, 90, 90);
+    const geradoEm = new Date().toLocaleString("pt-BR");
+    documento.text(`Gerado em: ${geradoEm}`, 40, 58);
+    documento.text(
+      `Janela analisada: ${formatarDataCurta(inicioJanela)} – ${formatarDataCurta(
+        fimJanela
+      )}`,
+      40,
+      72
+    );
+
+    const linhas = lista.map((item) => [
+      item.nomeFunc,
+      item.cid,
+      ROTULOS_STATUS[item.status],
+      `${item.diasNaJanela} ${item.diasNaJanela === 1 ? "dia" : "dias"}`,
+    ]);
+
+    autoTable(documento, {
+      startY: 90,
+      head: [["Funcionário", "CID", "Status", "Dias em 60"]],
+      body: linhas,
+      theme: "grid",
+      styles: {
+        fontSize: 10,
+        cellPadding: 6,
+        textColor: [18, 51, 32],
+      },
+      headStyles: {
+        fillColor: [62, 125, 82], // #3e7d52
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [234, 243, 238], // #eaf3ee (mesmo tom do fundo do app)
+      },
+      // Colore a coluna "Status" (índice 2) conforme o status do grupo,
+      // reproduzindo as mesmas cores do pill na tela.
+      didParseCell: (dados) => {
+        if (dados.section === "body" && dados.column.index === 2) {
+          const item = lista[dados.row.index];
+          const cor = CORES_STATUS_PDF[item.status] || [18, 51, 32];
+          dados.cell.styles.textColor = cor;
+          dados.cell.styles.fontStyle = "bold";
+        }
+      },
+    });
+
+    const sufixoData = new Date().toISOString().slice(0, 10);
+    documento.save(`acompanhamento-inss-${sufixoData}.pdf`);
+  }
+
   if (carregando) {
     return (
       <div className="timeline-bg">
@@ -220,11 +302,28 @@ export default function Timeline({ usuario }) {
         >
           ← Voltar
         </button>
-        <h1 className="timeline-titulo">Linha do tempo — 60 dias</h1>
-        <p className="timeline-periodo">
-          De <strong>{formatarDataCurta(inicioJanela)}</strong> até{" "}
-          <strong>{formatarDataCurta(fimJanela)}</strong>
-        </p>
+        <div className="timeline-cabecalho-topo">
+          <div>
+            <h1 className="timeline-titulo">Linha do tempo — 60 dias</h1>
+            <p className="timeline-periodo">
+              De <strong>{formatarDataCurta(inicioJanela)}</strong> até{" "}
+              <strong>{formatarDataCurta(fimJanela)}</strong>
+            </p>
+          </div>
+          <button
+            type="button"
+            className="timeline-btn-exportar"
+            onClick={exportarPDF}
+            disabled={lista.length === 0}
+            title={
+              lista.length === 0
+                ? "Nenhuma licença para exportar"
+                : "Exportar tabela em PDF"
+            }
+          >
+            📄 Exportar PDF
+          </button>
+        </div>
 
         {lista.length === 0 ? (
           <div className="timeline-vazio">
