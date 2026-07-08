@@ -138,6 +138,49 @@ export default function App() {
           </RotaProtegida>
         }
       />
+
+      {/* ─── Rotas de visita a uma conexão (modo somente leitura) ─── */}
+      <Route
+        path="/conexao/:uid"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Perfil usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/conexao/:uid/conexoes"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Conexoes usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/conexao/:uid/funcionarios"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Funcionarios usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/conexao/:uid/licencas"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <ListaLicencas usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+      <Route
+        path="/conexao/:uid/inss"
+        element={
+          <RotaProtegida usuario={usuario} carregando={carregando}>
+            <Timeline usuario={usuario} />
+          </RotaProtegida>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

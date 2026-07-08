@@ -236,3 +236,10 @@
     padding: 20px 16px;
   }
 }
+
+.perfil-menu-visitante {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}

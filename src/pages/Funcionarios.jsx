@@ -1,15 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   listarFuncionarios,
   listarLicencas,
   editarFuncionario,
   formatarData,
 } from "../services/firebase/licencas";
+import { carregarPerfil } from "../services/firebase/auth";
+import AvisoVisitante from "../components/AvisoVisitante";
+import "../components/AvisoVisitante.css";
 import "./Funcionarios.css";
 
 export default function Funcionarios({ usuario }) {
   const navigate = useNavigate();
+  const { uid: uidParam } = useParams();
+  const donoUid = uidParam || usuario?.uid;
+  const modoVisitante = Boolean(uidParam);
+
+  const [nomeDono, setNomeDono] = useState("");
   const [funcionarios, setFuncionarios] = useState([]);
   const [licencasPorFuncionario, setLicencasPorFuncionario] = useState({});
   const [carregando, setCarregando] = useState(true);
@@ -20,27 +28,30 @@ export default function Funcionarios({ usuario }) {
   const [salvando, setSalvando] = useState(false);
 
   const carregar = useCallback(async () => {
-    if (!usuario?.uid) return;
+    if (!donoUid) return;
     setCarregando(true);
     try {
-      const [funcs, licencas] = await Promise.all([
-        listarFuncionarios(usuario.uid),
-        listarLicencas(usuario.uid),
-      ]);
+      const tarefas = [listarFuncionarios(donoUid), listarLicencas(donoUid)];
+      if (modoVisitante) tarefas.push(carregarPerfil(donoUid));
+
+      const [funcs, licencas, perfilDono] = await Promise.all(tarefas);
       setFuncionarios(funcs);
+
       const agrupado = {};
       licencas.forEach((l) => {
         if (!agrupado[l.funcionarioId]) agrupado[l.funcionarioId] = [];
         agrupado[l.funcionarioId].push(l);
       });
       setLicencasPorFuncionario(agrupado);
+
+      if (modoVisitante) setNomeDono(perfilDono?.nome || "");
     } catch (err) {
       console.error("Erro ao carregar funcionários:", err);
       setErro("Não foi possível carregar os funcionários agora.");
     } finally {
       setCarregando(false);
     }
-  }, [usuario]);
+  }, [donoUid, modoVisitante]);
 
   useEffect(() => {
     carregar();
@@ -77,11 +88,23 @@ export default function Funcionarios({ usuario }) {
   return (
     <div className="func-bg">
       <div className="func-container">
-        <button className="func-link-voltar" onClick={() => navigate("/")}>
+        <button
+          className="func-link-voltar"
+          onClick={() => navigate(modoVisitante ? "/conexoes" : "/")}
+        >
           ← Voltar
         </button>
-        <h1 className="func-titulo">Funcionários</h1>
-        <p className="func-sub">Histórico de licenças por funcionário.</p>
+
+        {modoVisitante && <AvisoVisitante nomeDono={nomeDono} />}
+
+        <h1 className="func-titulo">
+          {modoVisitante ? `Funcionários de ${nomeDono || "..."}` : "Funcionários"}
+        </h1>
+        <p className="func-sub">
+          {modoVisitante
+            ? "Histórico de licenças por funcionário (somente leitura)."
+            : "Histórico de licenças por funcionário."}
+        </p>
 
         {erro && <p className="func-erro">{erro}</p>}
 
@@ -90,13 +113,17 @@ export default function Funcionarios({ usuario }) {
         ) : funcionarios.length === 0 ? (
           <div className="func-vazio">
             <div className="func-vazio-icone">👥</div>
-            <p className="func-vazio-texto">Nenhum funcionário cadastrado ainda.</p>
+            <p className="func-vazio-texto">
+              {modoVisitante
+                ? "Essa pessoa ainda não tem funcionários cadastrados."
+                : "Nenhum funcionário cadastrado ainda."}
+            </p>
           </div>
         ) : (
           <div className="func-cards">
             {funcionarios.map((f) => {
               const licencas = licencasPorFuncionario[f.id] || [];
-              const emEdicao = editandoId === f.id;
+              const emEdicao = !modoVisitante && editandoId === f.id;
               return (
                 <div className="func-card" key={f.id}>
                   {emEdicao ? (
@@ -144,9 +171,11 @@ export default function Funcionarios({ usuario }) {
                             {f.matricula ? `Matrícula: ${f.matricula}` : "Sem matrícula"}
                           </p>
                         </div>
-                        <button className="func-btn-editar" onClick={() => iniciarEdicao(f)}>
-                          Editar
-                        </button>
+                        {!modoVisitante && (
+                          <button className="func-btn-editar" onClick={() => iniciarEdicao(f)}>
+                            Editar
+                          </button>
+                        )}
                       </div>
 
                       {licencas.length === 0 ? (

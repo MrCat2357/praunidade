@@ -519,3 +519,10 @@
     width: 100%;
   }
 }
+
+.timeline-badge-inss-estatico {
+  cursor: default;
+}
+.timeline-badge-inss-estatico:hover {
+  background-color: #c23b3b; /* cancela o hover do estilo de botão */
+}

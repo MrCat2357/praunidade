@@ -5,34 +5,13 @@
 // funcionário + CID, com o nome colorido conforme o status e uma
 // barra representando a janela de 60 dias.
 //
-// Atualização (Prompt 5.2):
-// - Dentro da barra, cada licença individual do grupo agora aparece
-//   como um bloco colorido posicionado proporcionalmente à data.
-// - Clicar num bloco abre o modal de detalhes da licença.
-// - Clicar no badge "⚠ INSS" abre o modal de confirmação para marcar
-//   o funcionário como encaminhado ao INSS.
-//
-// Atualização (Prompt 5.3):
-// - A barra agora mostra uma janela de 120 dias no total: 60 dias no
-//   passado e 60 dias no futuro, centrada em hoje.
-// - Um marcador vertical "Hoje" foi adicionado para orientar
-//   visualmente o que já passou e o que ainda está por vir.
-//
-// Atualização (Prompt 5.4):
-// - Quando o status do grupo é "encaminhado" (pill cinza), o próprio
-//   pill agora é clicável e abre um modal de confirmação para
-//   "Restaurar alerta do INSS", que desfaz a marcação de
-//   encaminhadoINSS em todas as licenças do grupo e faz o status
-//   voltar a ser calculado normalmente pelos dias reais de
-//   afastamento.
-//
-// Atualização (Etapa 6 — Entrega A):
-// - Botão "Exportar PDF": gera um PDF (client-side, com jsPDF +
-//   jspdf-autotable) com uma tabela de funcionário, CID, status e dias
-//   na janela de 60 dias, usando cores equivalentes às do pill de
-//   status da tela.
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+// Atualização (Prompt 7.2 — modo visitante):
+// - Aceita um :uid via useParams. Se presente, a tela passa a exibir
+//   os dados desse "donoUid" em vez do usuário logado, esconde toda
+//   ação de escrita (marcar/restaurar encaminhamento ao INSS, editar
+//   licença) e mostra um aviso de que os dados são de outra pessoa.
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useMonitorINSS } from "../hooks/useMonitorINSS";
@@ -40,6 +19,9 @@ import {
   marcarEncaminhadoINSS,
   desfazerEncaminhamentoINSS,
 } from "../services/firebase/licencas";
+import { carregarPerfil } from "../services/firebase/auth";
+import AvisoVisitante from "../components/AvisoVisitante";
+import "../components/AvisoVisitante.css";
 import "./Timeline.css";
 
 // Cores em RGB equivalentes às usadas nos pills/blocos do Timeline.css,
@@ -83,10 +65,18 @@ function calcularDiasLicenca(inicio, fim) {
 }
 
 export default function Timeline({ usuario }) {
-  const { funcionarios, carregando, erro, recarregar } = useMonitorINSS(
-    usuario?.uid
-  );
+  const { uid: uidParam } = useParams();
+  const donoUid = uidParam || usuario?.uid;
+  const modoVisitante = Boolean(uidParam);
+
+  const { funcionarios, carregando, erro, recarregar } = useMonitorINSS(donoUid);
   const navigate = useNavigate();
+
+  const [nomeDono, setNomeDono] = useState("");
+  useEffect(() => {
+    if (!modoVisitante || !donoUid) return;
+    carregarPerfil(donoUid).then((dados) => setNomeDono(dados?.nome || ""));
+  }, [modoVisitante, donoUid]);
 
   // Modal de detalhes de uma licença específica
   const [licencaSelecionada, setLicencaSelecionada] = useState(null);
@@ -145,7 +135,7 @@ export default function Timeline({ usuario }) {
       await marcarEncaminhadoINSS(
         grupoInssSelecionado.funcionarioId,
         grupoInssSelecionado.cid,
-        usuario?.uid
+        donoUid
       );
       await recarregar();
       fecharModalInss();
@@ -176,7 +166,7 @@ export default function Timeline({ usuario }) {
       await desfazerEncaminhamentoINSS(
         grupoRestaurarSelecionado.funcionarioId,
         grupoRestaurarSelecionado.cid,
-        usuario?.uid
+        donoUid
       );
       await recarregar();
       fecharModalRestaurar();
@@ -194,6 +184,8 @@ export default function Timeline({ usuario }) {
   // funcionário+CID visível, seu status (com a cor equivalente ao
   // pill), os dias somados na janela de 60 dias e o período analisado.
   // Roda 100% no navegador (sem backend), usando jsPDF + jspdf-autotable.
+  // Mantido também em modo visitante: só renderiza dados já visíveis
+  // na tela (nenhuma escrita, nenhuma informação extra).
   function exportarPDF() {
     const documento = new jsPDF({ orientation: "landscape", unit: "pt" });
 
@@ -261,7 +253,7 @@ export default function Timeline({ usuario }) {
           <button
             type="button"
             className="timeline-link-voltar"
-            onClick={() => navigate("/")}
+            onClick={() => navigate(modoVisitante ? "/conexoes" : "/")}
           >
             ← Voltar
           </button>
@@ -278,7 +270,7 @@ export default function Timeline({ usuario }) {
           <button
             type="button"
             className="timeline-link-voltar"
-            onClick={() => navigate("/")}
+            onClick={() => navigate(modoVisitante ? "/conexoes" : "/")}
           >
             ← Voltar
           </button>
@@ -298,13 +290,20 @@ export default function Timeline({ usuario }) {
         <button
           type="button"
           className="timeline-link-voltar"
-          onClick={() => navigate("/")}
+          onClick={() => navigate(modoVisitante ? "/conexoes" : "/")}
         >
           ← Voltar
         </button>
+
+        {modoVisitante && <AvisoVisitante nomeDono={nomeDono} />}
+
         <div className="timeline-cabecalho-topo">
           <div>
-            <h1 className="timeline-titulo">Linha do tempo — 60 dias</h1>
+            <h1 className="timeline-titulo">
+              {modoVisitante
+                ? `Acompanhamento INSS de ${nomeDono || "..."}`
+                : "Linha do tempo — 60 dias"}
+            </h1>
             <p className="timeline-periodo">
               De <strong>{formatarDataCurta(inicioJanela)}</strong> até{" "}
               <strong>{formatarDataCurta(fimJanela)}</strong>
@@ -380,7 +379,7 @@ export default function Timeline({ usuario }) {
                         {item.nomeFunc}
                       </span>
                       <span className="timeline-cid">CID {item.cid}</span>
-                      {item.status === "inss" && (
+                      {item.status === "inss" && !modoVisitante && (
                         <button
                           type="button"
                           className="timeline-badge-inss"
@@ -389,9 +388,14 @@ export default function Timeline({ usuario }) {
                           ⚠ INSS
                         </button>
                       )}
+                      {item.status === "inss" && modoVisitante && (
+                        <span className="timeline-badge-inss timeline-badge-inss-estatico">
+                          ⚠ INSS
+                        </span>
+                      )}
                     </div>
                     <div className="timeline-linha-info">
-                      {item.status === "encaminhado" ? (
+                      {item.status === "encaminhado" && !modoVisitante ? (
                         <button
                           type="button"
                           className={`timeline-pill timeline-pill-btn status-${item.status}`}
@@ -498,21 +502,25 @@ export default function Timeline({ usuario }) {
               >
                 Fechar
               </button>
-              <button
-                type="button"
-                className="timeline-modal-btn-primario"
-                onClick={() =>
-                  navigate(`/licenca/${licencaSelecionada.id}/editar`)
-                }
-              >
-                Editar licença
-              </button>
+              {!modoVisitante && (
+                <button
+                  type="button"
+                  className="timeline-modal-btn-primario"
+                  onClick={() =>
+                    navigate(`/licenca/${licencaSelecionada.id}/editar`)
+                  }
+                >
+                  Editar licença
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de confirmação: marcar como encaminhado ao INSS */}
+      {/* Modal de confirmação: marcar como encaminhado ao INSS
+          (nunca abre em modo visitante, pois o botão que o dispara
+          não é renderizado nesse modo) */}
       {grupoInssSelecionado && (
         <div className="timeline-modal-fundo" onClick={fecharModalInss}>
           <div
@@ -583,7 +591,9 @@ export default function Timeline({ usuario }) {
       )}
 
       {/* Modal de confirmação: restaurar alerta do INSS (desfazer o
-          encaminhamento e voltar a calcular o status pelos dias reais) */}
+          encaminhamento e voltar a calcular o status pelos dias reais).
+          Nunca abre em modo visitante, pois o pill que o dispara vira
+          um <span> estático nesse modo. */}
       {grupoRestaurarSelecionado && (
         <div className="timeline-modal-fundo" onClick={fecharModalRestaurar}>
           <div

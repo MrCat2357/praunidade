@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   buscarUsuariosPorNome,
   enviarSolicitacao,
@@ -8,6 +8,9 @@ import {
   recusarSolicitacao,
   listarConexoes,
 } from "../services/firebase/conexoes";
+import { carregarPerfil } from "../services/firebase/auth";
+import AvisoVisitante from "../components/AvisoVisitante";
+import "../components/AvisoVisitante.css";
 import "./Conexoes.css";
 
 function Avatar({ nome, foto }) {
@@ -30,7 +33,12 @@ function Avatar({ nome, foto }) {
 
 export default function Conexoes({ usuario }) {
   const navigate = useNavigate();
+  const { uid: uidParam } = useParams();
   const meuUid = usuario?.uid;
+  const donoUid = uidParam || meuUid;
+  const modoVisitante = Boolean(uidParam);
+
+  const [nomeDono, setNomeDono] = useState("");
 
   const [carregandoInicial, setCarregandoInicial] = useState(true);
   const [termoBusca, setTermoBusca] = useState("");
@@ -45,21 +53,36 @@ export default function Conexoes({ usuario }) {
   const [mensagem, setMensagem] = useState("");
 
   const carregarDados = useCallback(async () => {
-    if (!meuUid) return;
+    if (!donoUid) return;
     setCarregandoInicial(true);
     try {
-      const [listaPendentes, listaConexoes] = await Promise.all([
-        listarSolicitacoesPendentes(meuUid),
-        listarConexoes(meuUid),
-      ]);
-      setPendentes(listaPendentes);
-      setConexoes(listaConexoes);
+      if (modoVisitante) {
+        // Modo visitante: NÃO buscamos solicitações pendentes de outra
+        // pessoa — além de não fazer sentido mostrar isso a um
+        // terceiro, a regra do Firestore de "solicitacoes" só libera
+        // leitura para o remetente/destinatário, então essa chamada
+        // seria negada mesmo que tentássemos.
+        const [listaConexoes, perfilDono] = await Promise.all([
+          listarConexoes(donoUid),
+          carregarPerfil(donoUid),
+        ]);
+        setConexoes(listaConexoes);
+        setPendentes([]);
+        setNomeDono(perfilDono?.nome || "");
+      } else {
+        const [listaPendentes, listaConexoes] = await Promise.all([
+          listarSolicitacoesPendentes(meuUid),
+          listarConexoes(meuUid),
+        ]);
+        setPendentes(listaPendentes);
+        setConexoes(listaConexoes);
+      }
     } catch {
-      setErro("Não foi possível carregar suas conexões agora.");
+      setErro("Não foi possível carregar as conexões agora.");
     } finally {
       setCarregandoInicial(false);
     }
-  }, [meuUid]);
+  }, [donoUid, modoVisitante, meuUid]);
 
   useEffect(() => {
     carregarDados();
@@ -123,58 +146,82 @@ export default function Conexoes({ usuario }) {
     return false;
   }
 
+  // Clique num card de "Suas conexões": navega para a versão
+  // visitante da conta daquela pessoa. Funciona igual seja a partir da
+  // MINHA tela de Conexões ou de dentro de uma visita já em curso
+  // (navegação em cadeia), já que sempre aponta para /conexao/{uid}.
+  function handleAbrirConexao(uidAlvo) {
+    if (uidAlvo === meuUid) {
+      navigate("/conexoes");
+      return;
+    }
+    navigate(`/conexao/${uidAlvo}`);
+  }
+
   return (
     <div className="conexoes-bg">
       <div className="conexoes-container">
-        <button className="conexoes-link-voltar" onClick={() => navigate("/")}>
+        <button
+          className="conexoes-link-voltar"
+          onClick={() => navigate(modoVisitante ? "/conexoes" : "/")}
+        >
           ← Voltar
         </button>
-        <h1 className="conexoes-titulo">Conexões</h1>
-        <p className="conexoes-sub">
-          Conecte-se com outras pessoas para acompanhar licenças em conjunto.
-        </p>
 
-        {/* BUSCA */}
-        <div className="conexoes-secao">
-          <h2 className="conexoes-secao-titulo">Buscar pessoas</h2>
-          <form className="conexoes-busca-form" onSubmit={handleBuscar}>
-            <input
-              className="conexoes-input"
-              type="text"
-              placeholder="Digite um nome"
-              value={termoBusca}
-              onChange={(e) => setTermoBusca(e.target.value)}
-            />
-            <button className="conexoes-btn-buscar" type="submit" disabled={buscando}>
-              {buscando ? "Buscando..." : "Buscar"}
-            </button>
-          </form>
+        {modoVisitante && <AvisoVisitante nomeDono={nomeDono} />}
 
-          {resultadosBusca.length > 0 && (
-            <div className="conexoes-lista">
-              {resultadosBusca.map((usuario) => (
-                <div className="conexoes-item" key={usuario.uid}>
-                  <Avatar nome={usuario.nome} foto={usuario.foto} />
-                  <div className="conexoes-info">
-                    <p className="conexoes-nome">{usuario.nome || "Sem nome"}</p>
-                    <p className="conexoes-email">{usuario.email}</p>
+        <h1 className="conexoes-titulo">
+          {modoVisitante ? `Conexões de ${nomeDono || "..."}` : "Conexões"}
+        </h1>
+        {!modoVisitante && (
+          <p className="conexoes-sub">
+            Conecte-se com outras pessoas para acompanhar licenças em conjunto.
+          </p>
+        )}
+
+        {/* BUSCA — só faz sentido na MINHA tela de conexões */}
+        {!modoVisitante && (
+          <div className="conexoes-secao">
+            <h2 className="conexoes-secao-titulo">Buscar pessoas</h2>
+            <form className="conexoes-busca-form" onSubmit={handleBuscar}>
+              <input
+                className="conexoes-input"
+                type="text"
+                placeholder="Digite um nome"
+                value={termoBusca}
+                onChange={(e) => setTermoBusca(e.target.value)}
+              />
+              <button className="conexoes-btn-buscar" type="submit" disabled={buscando}>
+                {buscando ? "Buscando..." : "Buscar"}
+              </button>
+            </form>
+
+            {resultadosBusca.length > 0 && (
+              <div className="conexoes-lista">
+                {resultadosBusca.map((usuarioResultado) => (
+                  <div className="conexoes-item" key={usuarioResultado.uid}>
+                    <Avatar nome={usuarioResultado.nome} foto={usuarioResultado.foto} />
+                    <div className="conexoes-info">
+                      <p className="conexoes-nome">{usuarioResultado.nome || "Sem nome"}</p>
+                      <p className="conexoes-email">{usuarioResultado.email}</p>
+                    </div>
+                    <button
+                      className="conexoes-btn-conectar"
+                      onClick={() => handleConectar(usuarioResultado.uid)}
+                      disabled={jaConectadoOuPendente(usuarioResultado.uid)}
+                    >
+                      {jaConectadoOuPendente(usuarioResultado.uid) ? "Enviado" : "Conectar"}
+                    </button>
                   </div>
-                  <button
-                    className="conexoes-btn-conectar"
-                    onClick={() => handleConectar(usuario.uid)}
-                    disabled={jaConectadoOuPendente(usuario.uid)}
-                  >
-                    {jaConectadoOuPendente(usuario.uid) ? "Enviado" : "Conectar"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
 
-          {!buscando && termoBusca.trim() && resultadosBusca.length === 0 && (
-            <p className="conexoes-vazio">Nenhuma pessoa encontrada com esse nome.</p>
-          )}
-        </div>
+            {!buscando && termoBusca.trim() && resultadosBusca.length === 0 && (
+              <p className="conexoes-vazio">Nenhuma pessoa encontrada com esse nome.</p>
+            )}
+          </div>
+        )}
 
         {erro && <p className="conexoes-erro">{erro}</p>}
         {mensagem && <p className="conexoes-mensagem">{mensagem}</p>}
@@ -183,56 +230,73 @@ export default function Conexoes({ usuario }) {
           <p className="conexoes-loading">Carregando...</p>
         ) : (
           <>
-            {/* SOLICITAÇÕES PENDENTES */}
-            <div className="conexoes-secao">
-              <h2 className="conexoes-secao-titulo">Solicitações pendentes</h2>
-              {pendentes.length === 0 ? (
-                <p className="conexoes-vazio">Você não tem solicitações no momento.</p>
-              ) : (
-                <div className="conexoes-lista">
-                  {pendentes.map((solicitacao) => (
-                    <div className="conexoes-item" key={solicitacao.id}>
-                      <Avatar
-                        nome={solicitacao.remetente?.nome}
-                        foto={solicitacao.remetente?.foto}
-                      />
-                      <div className="conexoes-info">
-                        <p className="conexoes-nome">
-                          {solicitacao.remetente?.nome || "Usuário"}
-                        </p>
-                        <p className="conexoes-email">
-                          {solicitacao.remetente?.email || ""}
-                        </p>
+            {/* SOLICITAÇÕES PENDENTES — só na MINHA tela */}
+            {!modoVisitante && (
+              <div className="conexoes-secao">
+                <h2 className="conexoes-secao-titulo">Solicitações pendentes</h2>
+                {pendentes.length === 0 ? (
+                  <p className="conexoes-vazio">Você não tem solicitações no momento.</p>
+                ) : (
+                  <div className="conexoes-lista">
+                    {pendentes.map((solicitacao) => (
+                      <div className="conexoes-item" key={solicitacao.id}>
+                        <Avatar
+                          nome={solicitacao.remetente?.nome}
+                          foto={solicitacao.remetente?.foto}
+                        />
+                        <div className="conexoes-info">
+                          <p className="conexoes-nome">
+                            {solicitacao.remetente?.nome || "Usuário"}
+                          </p>
+                          <p className="conexoes-email">
+                            {solicitacao.remetente?.email || ""}
+                          </p>
+                        </div>
+                        <div className="conexoes-acoes-duplas">
+                          <button
+                            className="conexoes-btn-aceitar"
+                            onClick={() => handleAceitar(solicitacao)}
+                          >
+                            Aceitar
+                          </button>
+                          <button
+                            className="conexoes-btn-recusar"
+                            onClick={() => handleRecusar(solicitacao)}
+                          >
+                            Recusar
+                          </button>
+                        </div>
                       </div>
-                      <div className="conexoes-acoes-duplas">
-                        <button
-                          className="conexoes-btn-aceitar"
-                          onClick={() => handleAceitar(solicitacao)}
-                        >
-                          Aceitar
-                        </button>
-                        <button
-                          className="conexoes-btn-recusar"
-                          onClick={() => handleRecusar(solicitacao)}
-                        >
-                          Recusar
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* CONEXÕES APROVADAS */}
+            {/* CONEXÕES APROVADAS — clicável em qualquer modo */}
             <div className="conexoes-secao">
-              <h2 className="conexoes-secao-titulo">Suas conexões</h2>
+              <h2 className="conexoes-secao-titulo">
+                {modoVisitante ? "Conexões dela(e)" : "Suas conexões"}
+              </h2>
               {conexoes.length === 0 ? (
-                <p className="conexoes-vazio">Você ainda não tem conexões.</p>
+                <p className="conexoes-vazio">
+                  {modoVisitante
+                    ? "Essa pessoa ainda não tem conexões."
+                    : "Você ainda não tem conexões."}
+                </p>
               ) : (
                 <div className="conexoes-lista">
                   {conexoes.map((conexao) => (
-                    <div className="conexoes-item" key={conexao.uid}>
+                    <div
+                      className="conexoes-item conexoes-item-clicavel"
+                      key={conexao.uid}
+                      onClick={() => handleAbrirConexao(conexao.uid)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") handleAbrirConexao(conexao.uid);
+                      }}
+                    >
                       <Avatar nome={conexao.nome} foto={conexao.foto} />
                       <div className="conexoes-info">
                         <p className="conexoes-nome">{conexao.nome || "Sem nome"}</p>
