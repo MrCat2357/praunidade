@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { auth } from "../services/firebase/config";
-import { atualizarPerfil, carregarPerfil } from "../services/firebase/auth";
+import { atualizarPerfil, carregarPerfil, atualizarFotoPerfil } from "../services/firebase/auth";
 import AvisoVisitante from "../components/AvisoVisitante";
 import "../components/AvisoVisitante.css";
 import "./Perfil.css";
@@ -38,8 +38,11 @@ export default function Perfil({ usuario }) {
   const [fotoExibida, setFotoExibida] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [sucesso, setSucesso] = useState("");
   const [erro, setErro] = useState("");
+
+  const inputFotoRef = useRef(null);
 
   useEffect(() => {
     if (!donoUid) return;
@@ -63,13 +66,14 @@ export default function Perfil({ usuario }) {
         .then((dados) => {
           setNome(dados?.nome || usuario.displayName || "");
           setBio(dados?.bio || "");
+          setFotoExibida(dados?.foto || usuario.photoURL || "");
         })
         .catch(() => {
           setNome(usuario.displayName || "");
+          setFotoExibida(usuario.photoURL || "");
         })
         .finally(() => setCarregando(false));
       setEmailExibido(usuario.email || "");
-      setFotoExibida(usuario.photoURL || "");
     }
   }, [donoUid, modoVisitante, usuario]);
 
@@ -95,6 +99,25 @@ export default function Perfil({ usuario }) {
       setErro("Não foi possível salvar as alterações. Tente novamente.");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function handleSelecionarFoto(e) {
+    const arquivo = e.target.files?.[0];
+    e.target.value = ""; // permite escolher o mesmo arquivo de novo depois
+    if (!arquivo) return;
+
+    limparMensagens();
+    setEnviandoFoto(true);
+    try {
+      const url = await atualizarFotoPerfil(usuario.uid, arquivo);
+      setFotoExibida(url);
+      setSucesso("Foto de perfil atualizada!");
+      setTimeout(() => setSucesso(""), 3000);
+    } catch (err) {
+      setErro(err.message || "Não foi possível atualizar a foto. Tente novamente.");
+    } finally {
+      setEnviandoFoto(false);
     }
   }
 
@@ -156,7 +179,29 @@ export default function Perfil({ usuario }) {
 
         <div className="perfil-card">
           <div className="perfil-avatar-wrap">
-            <Avatar nome={nome} foto={fotoExibida} />
+            <div className="perfil-avatar-editavel">
+              <Avatar nome={nome} foto={fotoExibida} />
+              {!modoVisitante && (
+                <button
+                  type="button"
+                  className="perfil-btn-trocar-foto"
+                  onClick={() => inputFotoRef.current?.click()}
+                  disabled={enviandoFoto}
+                  title="Trocar foto de perfil"
+                >
+                  {enviandoFoto ? "..." : "📷"}
+                </button>
+              )}
+            </div>
+            {!modoVisitante && (
+              <input
+                ref={inputFotoRef}
+                type="file"
+                accept="image/*"
+                className="perfil-input-foto-oculto"
+                onChange={handleSelecionarFoto}
+              />
+            )}
           </div>
 
           <form className="perfil-form" onSubmit={handleSalvar}>

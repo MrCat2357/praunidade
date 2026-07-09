@@ -8,9 +8,11 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db } from "./config";
 
 const googleProvider = new GoogleAuthProvider();
+const storage = getStorage();
 
 // Verifica se email já tem cadastro
 export async function checkEmailExists(email) {
@@ -63,6 +65,31 @@ export async function atualizarPerfil(uid, nome, bio) {
   if (auth.currentUser) {
     await updateProfile(auth.currentUser, { displayName: nome });
   }
+}
+
+// Envia a nova foto de perfil para o Firebase Storage e já salva a
+// URL pública no documento usuarios/{uid}. Só aceita imagens até 5MB.
+export async function atualizarFotoPerfil(uid, arquivo) {
+  if (!arquivo) throw new Error("Nenhum arquivo selecionado.");
+  if (!arquivo.type.startsWith("image/")) {
+    throw new Error("O arquivo precisa ser uma imagem (JPG, PNG etc.).");
+  }
+  const LIMITE_MB = 5;
+  if (arquivo.size > LIMITE_MB * 1024 * 1024) {
+    throw new Error(`A imagem deve ter no máximo ${LIMITE_MB}MB.`);
+  }
+
+  const caminho = `perfis/${uid}/${Date.now()}_${arquivo.name}`;
+  const referencia = ref(storage, caminho);
+  await uploadBytes(referencia, arquivo);
+  const url = await getDownloadURL(referencia);
+
+  await updateDoc(doc(db, "usuarios", uid), { foto: url });
+  if (auth.currentUser && auth.currentUser.uid === uid) {
+    await updateProfile(auth.currentUser, { photoURL: url });
+  }
+
+  return url;
 }
 
 // Salvar/atualizar usuário no Firestore
