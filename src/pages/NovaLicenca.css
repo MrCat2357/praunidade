@@ -1,0 +1,291 @@
+/* NovaLicenca.css */
+
+.licenca-bg {
+  min-height: 100vh;
+  background-color: #eaf3ec;
+  padding: 24px 16px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.licenca-container {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.licenca-link-voltar {
+  display: inline-block;
+  background: none;
+  border: none;
+  color: #2e4374;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 16px;
+  padding: 4px 0;
+}
+
+.licenca-link-voltar:hover {
+  text-decoration: underline;
+}
+
+.licenca-titulo {
+  font-size: 24px;
+  font-weight: 700;
+  color: #123320;
+  margin: 0 0 4px 0;
+}
+
+.licenca-sub {
+  font-size: 15px;
+  color: #3e7d52;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.licenca-card {
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 16px;
+  padding: 24px 20px;
+}
+
+.licenca-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.licenca-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.licenca-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f4d2e;
+}
+
+.licenca-label-opcional {
+  font-weight: 400;
+  color: #8aa893;
+  font-size: 13px;
+}
+
+.licenca-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 10px;
+  color: #123320;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.licenca-input:focus {
+  border-color: #3e7d52;
+}
+
+.licenca-input::placeholder {
+  color: #8aa893;
+}
+
+/* Autocomplete de funcionário */
+.licenca-autocomplete-wrap {
+  position: relative;
+}
+
+.licenca-autocomplete-lista {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background-color: #ffffff;
+  border: 1.5px solid #9fc9ac;
+  border-radius: 10px;
+  z-index: 10;
+  max-height: 176px; /* ~4 itens visíveis (44px cada), resto rola */
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.licenca-autocomplete-item {
+  padding: 12px 16px;
+  font-size: 15px;
+  color: #123320;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.licenca-autocomplete-item:hover {
+  background-color: #eaf3ec;
+}
+
+.licenca-autocomplete-novo {
+  padding: 12px 16px;
+  font-size: 15px;
+  color: #3e7d52;
+  font-weight: 600;
+  cursor: pointer;
+  border-top: 1px solid #bfe0c9;
+}
+
+.licenca-autocomplete-novo:hover {
+  background-color: #eaf3ec;
+}
+
+/* Datas lado a lado */
+.licenca-datas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Upload de arquivo */
+.licenca-upload-area {
+  border: 2px dashed #9fc9ac;
+  border-radius: 10px;
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+  background-color: #ffffff;
+}
+
+.licenca-upload-area:hover {
+  border-color: #3e7d52;
+  background-color: #f5fbf6;
+}
+
+.licenca-upload-icone {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.licenca-upload-texto {
+  font-size: 14px;
+  color: #3e7d52;
+  margin: 0;
+  font-weight: 500;
+}
+
+.licenca-upload-hint {
+  font-size: 12px;
+  color: #8aa893;
+  margin: 4px 0 0 0;
+}
+
+.licenca-upload-selecionado {
+  font-size: 13px;
+  color: #1f4d2e;
+  margin: 8px 0 0 0;
+  font-weight: 500;
+}
+
+.licenca-upload-input {
+  display: none;
+}
+
+.licenca-upload-existente {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #2e4374;
+  margin-top: 8px;
+}
+
+.licenca-upload-existente a {
+  color: #2e4374;
+  font-weight: 500;
+}
+
+/* Progress de upload */
+.licenca-upload-progress {
+  font-size: 13px;
+  color: #3e7d52;
+  margin-top: 6px;
+}
+
+/* Mensagens */
+.licenca-erro {
+  font-size: 14px;
+  color: #501313;
+  padding: 10px 14px;
+  background-color: #fcebeb;
+  border-radius: 8px;
+  border: 1px solid #f0c1c1;
+}
+
+.licenca-sucesso {
+  font-size: 14px;
+  color: #1f4d2e;
+  padding: 10px 14px;
+  background-color: #bfe0c9;
+  border-radius: 8px;
+}
+
+/* Botões */
+.licenca-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.licenca-btn-salvar {
+  width: 100%;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  background-color: #3e7d52;
+  color: #eaf6ed;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 50px;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.licenca-btn-salvar:hover:not(:disabled) {
+  background-color: #1f4d2e;
+}
+
+.licenca-btn-salvar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.licenca-btn-cancelar {
+  width: 100%;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  background-color: transparent;
+  color: #1b2a4a;
+  border: 1.5px solid #2e4374;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 50px;
+  transition: background-color 0.2s;
+}
+
+.licenca-btn-cancelar:hover {
+  background-color: #dce6f7;
+}
+
+@media (max-width: 480px) {
+  .licenca-card {
+    padding: 20px 14px;
+  }
+
+  .licenca-datas {
+    grid-template-columns: 1fr;
+  }
+}

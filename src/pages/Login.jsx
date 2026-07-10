@@ -5,6 +5,8 @@ import {
   loginWithEmail,
   registerWithEmail,
   loginWithGoogle,
+  concluirCadastroGoogle,
+  cancelarCadastroGoogle,
   resetPassword,
 } from "../services/firebase/auth";
 import "./Login.css";
@@ -13,10 +15,21 @@ const STEP = {
   EMAIL: "email",
   LOGIN: "login",
   REGISTER: "register",
+  GOOGLE_TERMS: "google_terms",
   RESET_SENT: "reset_sent",
 };
 
-export default function Login() {
+function iniciaisDoNome(nome) {
+  return (nome || "?")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0].toUpperCase())
+    .join("");
+}
+
+export default function Login({ onAuthComplete }) {
   const navigate = useNavigate();
   const [step, setStep] = useState(STEP.EMAIL);
   const [email, setEmail] = useState("");
@@ -27,6 +40,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
+
+  // Usuário autenticado no Google aguardando aceite dos Termos de Uso
+  const [googleUser, setGoogleUser] = useState(null);
+  const [termosGoogle, setTermosGoogle] = useState(false);
 
   function limparErro() {
     setErro("");
@@ -57,6 +74,7 @@ export default function Login() {
     setLoading(true);
     try {
       await loginWithEmail(email, password);
+      onAuthComplete?.();
       navigate("/");
     } catch (err) {
       if (
@@ -82,6 +100,7 @@ export default function Login() {
     setLoading(true);
     try {
       await registerWithEmail(email, password, nome.trim());
+      onAuthComplete?.();
       navigate("/");
     } catch (err) {
       if (err.code === "auth/email-already-in-use") {
@@ -94,17 +113,56 @@ export default function Login() {
     }
   }
 
-  // Google
+  // Google — passo 1: autenticar. Se for conta nova, não libera acesso
+  // ainda: manda para a tela de aceite dos Termos de Uso.
   async function handleGoogle() {
     limparErro();
     setLoading(true);
     try {
-      await loginWithGoogle();
-      navigate("/");
+      const { user, isNewUser } = await loginWithGoogle();
+      if (isNewUser) {
+        setGoogleUser(user);
+        setTermosGoogle(false);
+        setStep(STEP.GOOGLE_TERMS);
+      } else {
+        onAuthComplete?.();
+        navigate("/");
+      }
     } catch {
       setErro("Não foi possível entrar com o Google. Tente novamente.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Google — passo 2: aceitar os termos e concluir o cadastro
+  async function handleConcluirCadastroGoogle() {
+    limparErro();
+    if (!termosGoogle) return setErro("Aceite os Termos de Uso para continuar.");
+    setLoading(true);
+    try {
+      await concluirCadastroGoogle(googleUser);
+      onAuthComplete?.();
+      navigate("/");
+    } catch {
+      setErro("Não foi possível concluir o cadastro. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Google — cancelar: remove a conta recém-criada no Firebase Auth
+  // (que ainda não tem documento no Firestore) e volta para o início.
+  async function handleCancelarGoogle() {
+    setLoading(true);
+    try {
+      await cancelarCadastroGoogle();
+    } finally {
+      setGoogleUser(null);
+      setTermosGoogle(false);
+      setStep(STEP.EMAIL);
+      setLoading(false);
+      limparErro();
     }
   }
 
@@ -253,6 +311,55 @@ export default function Login() {
             <div className="login-divider"><span>ou cadastre-se com</span></div>
             <button className="login-btn-google" onClick={handleGoogle} disabled={loading}>
               <GoogleIcon /> Continuar com Google
+            </button>
+          </>
+        )}
+
+        {/* GOOGLE — ACEITE DOS TERMOS (conta nova) */}
+        {step === STEP.GOOGLE_TERMS && googleUser && (
+          <>
+            <h1 className="login-title">Criar sua conta</h1>
+            <p className="login-sub">
+              Olá, {googleUser.displayName || "tudo bem"}! Só falta aceitar os termos.
+            </p>
+
+            <div className="login-google-user-card">
+              <div className="login-google-avatar">
+                {googleUser.photoURL ? (
+                  <img src={googleUser.photoURL} alt={googleUser.displayName || "Usuário"} />
+                ) : (
+                  iniciaisDoNome(googleUser.displayName)
+                )}
+              </div>
+              <div className="login-google-user-info">
+                <p className="login-google-user-nome">{googleUser.displayName}</p>
+                <p className="login-google-user-email">{googleUser.email}</p>
+              </div>
+            </div>
+
+            <label className="login-termos login-termos-google">
+              <input
+                type="checkbox"
+                checked={termosGoogle}
+                onChange={(e) => { limparErro(); setTermosGoogle(e.target.checked); }}
+              />
+              Li e aceito os{" "}
+              <a href="/termos" target="_blank" rel="noopener noreferrer">
+                Termos de Uso
+              </a>
+            </label>
+
+            {erro && <p className="login-erro">{erro}</p>}
+
+            <button
+              className="login-btn-primary"
+              onClick={handleConcluirCadastroGoogle}
+              disabled={loading}
+            >
+              {loading ? "Concluindo..." : "Concluir cadastro"}
+            </button>
+            <button className="login-link" onClick={handleCancelarGoogle} disabled={loading}>
+              Cancelar e voltar
             </button>
           </>
         )}
