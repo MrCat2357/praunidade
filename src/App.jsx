@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./services/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "./services/firebase/config";
 import Login from "./pages/Login";
 import Conexoes from "./pages/Conexoes";
 import Perfil from "./pages/Perfil";
@@ -12,9 +13,14 @@ import Timeline from "./pages/Timeline";
 import "./pages/Home.css";
 import Funcionarios from "./pages/Funcionarios";
 
-function RotaProtegida({ children, usuario, carregando }) {
+// Além de estar autenticado no Firebase Auth, o usuário só tem acesso
+// liberado às rotas internas se o cadastro estiver de fato concluído
+// (documento usuarios/{uid} no Firestore). Isso evita que uma conta
+// Google recém-criada — autenticada no popup, mas que ainda não aceitou
+// os Termos de Uso — seja redirecionada para dentro da plataforma.
+function RotaProtegida({ children, usuario, perfilCompleto, carregando }) {
   if (carregando) return <div className="loading">Carregando...</div>;
-  if (!usuario) return <Navigate to="/login" replace />;
+  if (!usuario || !perfilCompleto) return <Navigate to="/login" replace />;
   return children;
 }
 
@@ -55,29 +61,62 @@ function Home({ usuario }) {
 
 export default function App() {
   const [usuario, setUsuario] = useState(null);
+  const [perfilCompleto, setPerfilCompleto] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setUsuario(null);
+        setPerfilCompleto(false);
+        setCarregando(false);
+        return;
+      }
+
       setUsuario(user);
-      setCarregando(false);
+
+      // Cobre os casos de F5 / nova aba: se já existe documento em
+      // usuarios/{uid}, o cadastro foi concluído em algum momento e o
+      // acesso pode ser liberado. Se não existe (ex: popup do Google
+      // autenticou mas a pessoa fechou a aba antes de aceitar os
+      // termos), o acesso continua bloqueado.
+      try {
+        const snap = await getDoc(doc(db, "usuarios", user.uid));
+        setPerfilCompleto(snap.exists());
+      } catch {
+        setPerfilCompleto(false);
+      } finally {
+        setCarregando(false);
+      }
     });
     return () => unsub();
   }, []);
+
+  // Chamado pelo Login.jsx assim que um fluxo termina com sucesso
+  // (login normal, cadastro normal, Google já existente ou aceite dos
+  // termos do Google). Evita depender só da checagem assíncrona do
+  // Firestore acima, que teria corrida com o navigate("/") do Login.
+  function handleAuthComplete() {
+    setPerfilCompleto(true);
+  }
 
   return (
     <Routes>
       <Route
         path="/login"
         element={
-          carregando ? null : usuario ? <Navigate to="/" replace /> : <Login />
+          carregando ? null : usuario && perfilCompleto ? (
+            <Navigate to="/" replace />
+          ) : (
+            <Login onAuthComplete={handleAuthComplete} />
+          )
         }
       />
       <Route path="/termos" element={<Termos />} />
       <Route
         path="/"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Home usuario={usuario} />
           </RotaProtegida>
         }
@@ -85,7 +124,7 @@ export default function App() {
       <Route
         path="/conexoes"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Conexoes usuario={usuario} />
           </RotaProtegida>
         }
@@ -93,7 +132,7 @@ export default function App() {
       <Route
         path="/perfil"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Perfil usuario={usuario} />
           </RotaProtegida>
         }
@@ -101,7 +140,7 @@ export default function App() {
       <Route
         path="/nova-licenca"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <NovaLicenca usuario={usuario} />
           </RotaProtegida>
         }
@@ -109,7 +148,7 @@ export default function App() {
       <Route
         path="/licencas"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <ListaLicencas usuario={usuario} />
           </RotaProtegida>
         }
@@ -117,7 +156,7 @@ export default function App() {
       <Route
         path="/timeline"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Timeline usuario={usuario} />
           </RotaProtegida>
         }
@@ -125,7 +164,7 @@ export default function App() {
       <Route
         path="/funcionarios"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Funcionarios usuario={usuario} />
           </RotaProtegida>
         }
@@ -133,7 +172,7 @@ export default function App() {
       <Route
         path="/licenca/:id/editar"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <NovaLicenca usuario={usuario} />
           </RotaProtegida>
         }
@@ -143,7 +182,7 @@ export default function App() {
       <Route
         path="/conexao/:uid"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Perfil usuario={usuario} />
           </RotaProtegida>
         }
@@ -151,7 +190,7 @@ export default function App() {
       <Route
         path="/conexao/:uid/conexoes"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Conexoes usuario={usuario} />
           </RotaProtegida>
         }
@@ -159,7 +198,7 @@ export default function App() {
       <Route
         path="/conexao/:uid/funcionarios"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Funcionarios usuario={usuario} />
           </RotaProtegida>
         }
@@ -167,7 +206,7 @@ export default function App() {
       <Route
         path="/conexao/:uid/licencas"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <ListaLicencas usuario={usuario} />
           </RotaProtegida>
         }
@@ -175,7 +214,7 @@ export default function App() {
       <Route
         path="/conexao/:uid/inss"
         element={
-          <RotaProtegida usuario={usuario} carregando={carregando}>
+          <RotaProtegida usuario={usuario} perfilCompleto={perfilCompleto} carregando={carregando}>
             <Timeline usuario={usuario} />
           </RotaProtegida>
         }

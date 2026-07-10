@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
+  getAdditionalUserInfo,
   fetchSignInMethodsForEmail,
   updateProfile,
   sendPasswordResetEmail,
@@ -34,16 +35,38 @@ export async function registerWithEmail(email, password, displayName) {
   return result.user;
 }
 
-// Login/cadastro com Google
+// Login/cadastro com Google — passo 1: só autentica no Firebase Auth.
+// NÃO grava nada no Firestore ainda. Quem chamar isso precisa checar
+// `isNewUser`: se for true, o cadastro só deve ser considerado
+// concluído depois que a pessoa aceitar os Termos de Uso (chamando
+// concluirCadastroGoogle). Se for false, é alguém que já tinha conta
+// e já aceitou os termos antes — pode liberar o acesso direto.
 export async function loginWithGoogle() {
   const result = await signInWithPopup(auth, googleProvider);
-  const user = result.user;
-  const userRef = doc(db, "usuarios", user.uid);
-  const snap = await getDoc(userRef);
-  if (!snap.exists()) {
-    await saveUserToFirestore(user, user.displayName);
+  const info = getAdditionalUserInfo(result);
+  return { user: result.user, isNewUser: Boolean(info?.isNewUser) };
+}
+
+// Login/cadastro com Google — passo 2: só é chamado depois que a
+// pessoa aceitou os Termos de Uso na tela de boas-vindas do Google.
+// Aí sim gravamos o documento em usuarios/{uid}.
+export async function concluirCadastroGoogle(user) {
+  await saveUserToFirestore(user, user.displayName);
+}
+
+// Chamado quando a pessoa clica em "Cancelar e voltar" na tela de
+// aceite de termos do Google. Como o Firebase Auth já criou a conta
+// no momento do popup (mesmo sem termos aceitos e sem documento no
+// Firestore), removemos essa conta órfã para não deixar lixo para
+// trás. Se a exclusão falhar por qualquer motivo, ao menos
+// deslogamos, para a pessoa não ficar presa numa sessão sem perfil.
+export async function cancelarCadastroGoogle() {
+  if (!auth.currentUser) return;
+  try {
+    await auth.currentUser.delete();
+  } catch {
+    await auth.signOut();
   }
-  return user;
 }
 
 // Enviar email de redefinição de senha
