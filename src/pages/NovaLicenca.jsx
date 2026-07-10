@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   buscarOuCriarFuncionario,
   listarFuncionarios,
+  listarCidsUnicos,
   cadastrarLicenca,
   buscarLicenca,
   editarLicenca,
@@ -13,7 +14,7 @@ import "./NovaLicenca.css";
 
 export default function NovaLicenca({ usuario }) {
   const navigate = useNavigate();
-  const { id: licencaId } = useParams(); // presente apenas na rota de edição
+  const { id: licencaId } = useParams();
   const modoEdicao = Boolean(licencaId);
 
   const [nomeFunc, setNomeFunc] = useState("");
@@ -21,12 +22,20 @@ export default function NovaLicenca({ usuario }) {
   const [todosFuncionarios, setTodosFuncionarios] = useState([]);
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
+  const [matricula, setMatricula] = useState("");
+  const [sugestoesMatricula, setSugestoesMatricula] = useState([]);
+  const [mostrarSugestoesMatricula, setMostrarSugestoesMatricula] = useState(false);
+
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
-  const [cid, setCid] = useState("");
 
-  const [arquivo, setArquivo] = useState(null); // File selecionado
-  const [arquivoURL, setArquivoURL] = useState(""); // URL já salva (edição)
+  const [cid, setCid] = useState("");
+  const [sugestoesCid, setSugestoesCid] = useState([]);
+  const [todosCids, setTodosCids] = useState([]);
+  const [mostrarSugestoesCid, setMostrarSugestoesCid] = useState(false);
+
+  const [arquivo, setArquivo] = useState(null);
+  const [arquivoURL, setArquivoURL] = useState("");
   const [fazendoUpload, setFazendoUpload] = useState(false);
 
   const [carregando, setCarregando] = useState(modoEdicao);
@@ -35,16 +44,19 @@ export default function NovaLicenca({ usuario }) {
 
   const inputArquivoRef = useRef(null);
   const autocompleteRef = useRef(null);
+  const matriculaAutocompleteRef = useRef(null);
+  const cidAutocompleteRef = useRef(null);
 
-  // Carrega funcionários para autocomplete
   useEffect(() => {
     if (!usuario?.uid) return;
     listarFuncionarios(usuario.uid)
-        .then(setTodosFuncionarios)
-        .catch((err) => console.error("Erro ao listar funcionários:", err));
+      .then(setTodosFuncionarios)
+      .catch((err) => console.error("Erro ao listar funcionários:", err));
+    listarCidsUnicos(usuario.uid)
+      .then(setTodosCids)
+      .catch((err) => console.error("Erro ao listar CIDs:", err));
   }, [usuario]);
 
-  // Se for edição, carrega os dados da licença
   useEffect(() => {
     if (!modoEdicao || !licencaId) return;
     buscarLicenca(licencaId)
@@ -60,11 +72,16 @@ export default function NovaLicenca({ usuario }) {
       .finally(() => setCarregando(false));
   }, [modoEdicao, licencaId, navigate]);
 
-  // Fecha sugestões ao clicar fora
   useEffect(() => {
     function handler(e) {
       if (autocompleteRef.current && !autocompleteRef.current.contains(e.target)) {
         setMostrarSugestoes(false);
+      }
+      if (matriculaAutocompleteRef.current && !matriculaAutocompleteRef.current.contains(e.target)) {
+        setMostrarSugestoesMatricula(false);
+      }
+      if (cidAutocompleteRef.current && !cidAutocompleteRef.current.contains(e.target)) {
+        setMostrarSugestoesCid(false);
       }
     }
     document.addEventListener("mousedown", handler);
@@ -80,14 +97,62 @@ export default function NovaLicenca({ usuario }) {
       );
       setSugestoes(filtrados);
       setMostrarSugestoes(true);
+
+      const exato = todosFuncionarios.find(
+        (f) => f.nome.toLowerCase() === valor.trim().toLowerCase()
+      );
+      if (exato && exato.matricula) setMatricula(exato.matricula);
     } else {
       setMostrarSugestoes(false);
     }
   }
 
-  function selecionarFuncionario(nome) {
-    setNomeFunc(nome);
+  function selecionarFuncionario(f) {
+    setNomeFunc(f.nome);
+    if (f.matricula) setMatricula(f.matricula);
     setMostrarSugestoes(false);
+  }
+
+  function handleMatriculaChange(e) {
+    const valor = e.target.value.replace(/\D/g, "").slice(0, 8);
+    setMatricula(valor);
+    if (valor.length > 0) {
+      const filtrados = todosFuncionarios.filter((f) =>
+        (f.matricula || "").includes(valor)
+      );
+      setSugestoesMatricula(filtrados);
+      setMostrarSugestoesMatricula(true);
+
+      const exato = todosFuncionarios.find((f) => f.matricula === valor);
+      if (exato) setNomeFunc(exato.nome);
+    } else {
+      setMostrarSugestoesMatricula(false);
+    }
+  }
+
+  function selecionarMatricula(f) {
+    setMatricula(f.matricula);
+    setNomeFunc(f.nome);
+    setMostrarSugestoesMatricula(false);
+  }
+
+  function handleCidChange(e) {
+    const valor = e.target.value;
+    setCid(valor);
+    if (valor.trim().length > 0) {
+      const filtrados = todosCids.filter((c) =>
+        c.toLowerCase().includes(valor.toLowerCase())
+      );
+      setSugestoesCid(filtrados);
+      setMostrarSugestoesCid(true);
+    } else {
+      setMostrarSugestoesCid(false);
+    }
+  }
+
+  function selecionarCid(c) {
+    setCid(c);
+    setMostrarSugestoesCid(false);
   }
 
   function handleArquivoChange(e) {
@@ -115,12 +180,14 @@ export default function NovaLicenca({ usuario }) {
     if (!dataFim) return setErro("Informe a data de fim da licença.");
     if (dataFim < dataInicio) return setErro("A data de fim não pode ser anterior à data de início.");
     if (!cid.trim()) return setErro("Informe o CID da licença.");
+    if (matricula && matricula.length !== 8) {
+      return setErro("A matrícula deve ter 8 dígitos.");
+    }
 
     setSalvando(true);
     try {
       let urlFinal = arquivoURL;
 
-      // Faz upload do arquivo se um novo foi selecionado
       if (arquivo) {
         setFazendoUpload(true);
         urlFinal = await uploadArquivoLicenca(arquivo, usuario.uid);
@@ -136,7 +203,7 @@ export default function NovaLicenca({ usuario }) {
           arquivoURL: urlFinal,
         });
       } else {
-        const funcionarioId = await buscarOuCriarFuncionario(nomeFunc, usuario.uid);
+        const funcionarioId = await buscarOuCriarFuncionario(nomeFunc, matricula, usuario.uid);
         await cadastrarLicenca({
           funcionarioId,
           nomeFunc: nomeFunc.trim(),
@@ -196,47 +263,94 @@ export default function NovaLicenca({ usuario }) {
         <div className="licenca-card">
           <form className="licenca-form" onSubmit={handleSalvar}>
 
-            {/* Funcionário */}
-            <div className="licenca-campo">
-              <label className="licenca-label">Funcionário</label>
-              <div className="licenca-autocomplete-wrap" ref={autocompleteRef}>
-                <input
-                  className="licenca-input"
-                  type="text"
-                  placeholder="Nome do funcionário"
-                  value={nomeFunc}
-                  onChange={handleNomeFuncChange}
-                  onFocus={() => {
-                    if (nomeFunc.trim()) setMostrarSugestoes(true);
-                  }}
-                  autoComplete="off"
-                />
-                {mostrarSugestoes && (
-                  <div className="licenca-autocomplete-lista">
-                    {sugestoes.map((f) => (
-                      <div
-                        key={f.id}
-                        className="licenca-autocomplete-item"
-                        onMouseDown={() => selecionarFuncionario(f.nome)}
-                      >
-                        {f.nome}
-                      </div>
-                    ))}
-                    {nomeFunc.trim() &&
-                      !sugestoes.some(
-                        (f) => f.nome.toLowerCase() === nomeFunc.trim().toLowerCase()
-                      ) && (
+            <div className="licenca-datas">
+              {/* Funcionário */}
+              <div className="licenca-campo">
+                <label className="licenca-label">Funcionário</label>
+                <div className="licenca-autocomplete-wrap" ref={autocompleteRef}>
+                  <input
+                    className="licenca-input"
+                    type="text"
+                    placeholder="Nome do funcionário"
+                    value={nomeFunc}
+                    onChange={handleNomeFuncChange}
+                    onFocus={() => {
+                      setSugestoes(
+                        nomeFunc.trim()
+                          ? todosFuncionarios.filter((f) =>
+                              f.nome.toLowerCase().includes(nomeFunc.toLowerCase())
+                            )
+                          : todosFuncionarios
+                      );
+                      setMostrarSugestoes(true);
+                    }}
+                    autoComplete="off"
+                  />
+                  {mostrarSugestoes && (
+                    <div className="licenca-autocomplete-lista">
+                      {sugestoes.map((f) => (
                         <div
-                          className="licenca-autocomplete-novo"
-                          onMouseDown={() => {
-                            setMostrarSugestoes(false);
-                          }}
+                          key={f.id}
+                          className="licenca-autocomplete-item"
+                          onMouseDown={() => selecionarFuncionario(f)}
                         >
-                          + Criar "{nomeFunc.trim()}"
+                          {f.nome}
                         </div>
-                      )}
-                  </div>
-                )}
+                      ))}
+                      {nomeFunc.trim() &&
+                        !sugestoes.some(
+                          (f) => f.nome.toLowerCase() === nomeFunc.trim().toLowerCase()
+                        ) && (
+                          <div
+                            className="licenca-autocomplete-novo"
+                            onMouseDown={() => setMostrarSugestoes(false)}
+                          >
+                            + Criar "{nomeFunc.trim()}"
+                          </div>
+                        )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Matrícula */}
+              <div className="licenca-campo">
+                <label className="licenca-label">
+                  Matrícula <span className="licenca-label-opcional">(opcional)</span>
+                </label>
+                <div className="licenca-autocomplete-wrap" ref={matriculaAutocompleteRef}>
+                  <input
+                    className="licenca-input"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="8 dígitos"
+                    value={matricula}
+                    maxLength={8}
+                    onChange={handleMatriculaChange}
+                    onFocus={() => {
+                      setSugestoesMatricula(
+                        matricula
+                          ? todosFuncionarios.filter((f) => (f.matricula || "").includes(matricula))
+                          : todosFuncionarios.filter((f) => f.matricula)
+                      );
+                      setMostrarSugestoesMatricula(true);
+                    }}
+                    autoComplete="off"
+                  />
+                  {mostrarSugestoesMatricula && (
+                    <div className="licenca-autocomplete-lista">
+                      {sugestoesMatricula.map((f) => (
+                        <div
+                          key={f.id}
+                          className="licenca-autocomplete-item"
+                          onMouseDown={() => selecionarMatricula(f)}
+                        >
+                          {f.matricula} — {f.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -248,6 +362,7 @@ export default function NovaLicenca({ usuario }) {
                   className="licenca-input"
                   type="date"
                   value={dataInicio}
+                  max={dataFim || undefined}
                   onChange={(e) => setDataInicio(e.target.value)}
                 />
               </div>
@@ -257,6 +372,7 @@ export default function NovaLicenca({ usuario }) {
                   className="licenca-input"
                   type="date"
                   value={dataFim}
+                  min={dataInicio || undefined}
                   onChange={(e) => setDataFim(e.target.value)}
                 />
               </div>
@@ -265,25 +381,54 @@ export default function NovaLicenca({ usuario }) {
             {/* CID */}
             <div className="licenca-campo">
               <label className="licenca-label">CID</label>
-              <input
-                className="licenca-input"
-                type="text"
-                placeholder="Ex: M54.5"
-                value={cid}
-                onChange={(e) => setCid(e.target.value)}
-              />
+              <div className="licenca-autocomplete-wrap" ref={cidAutocompleteRef}>
+                <input
+                  className="licenca-input"
+                  type="text"
+                  placeholder="Ex: M54.5"
+                  value={cid}
+                  onChange={handleCidChange}
+                  onFocus={() => {
+                    setSugestoesCid(
+                      cid.trim()
+                        ? todosCids.filter((c) => c.toLowerCase().includes(cid.toLowerCase()))
+                        : todosCids
+                    );
+                    setMostrarSugestoesCid(true);
+                  }}
+                  autoComplete="off"
+                />
+                {mostrarSugestoesCid && (
+                  <div className="licenca-autocomplete-lista">
+                    {sugestoesCid.map((c) => (
+                      <div
+                        key={c}
+                        className="licenca-autocomplete-item"
+                        onMouseDown={() => selecionarCid(c)}
+                      >
+                        {c}
+                      </div>
+                    ))}
+                    {cid.trim() &&
+                      !sugestoesCid.some((c) => c.toLowerCase() === cid.trim().toLowerCase()) && (
+                        <div
+                          className="licenca-autocomplete-novo"
+                          onMouseDown={() => setMostrarSugestoesCid(false)}
+                        >
+                          + Usar "{cid.trim()}"
+                        </div>
+                      )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Upload */}
             <div className="licenca-campo">
               <label className="licenca-label">
-                Arquivo da licença{" "}
-                <span className="licenca-label-opcional">(opcional)</span>
+                Arquivo da licença <span className="licenca-label-opcional">(opcional)</span>
               </label>
-              <div
-                className="licenca-upload-area"
-                onClick={() => inputArquivoRef.current?.click()}
-              >
+              <div className="licenca-upload-area" onClick={() => inputArquivoRef.current?.click()}>
                 <div className="licenca-upload-icone">📄</div>
                 <p className="licenca-upload-texto">
                   {arquivo ? arquivo.name : "Toque para selecionar um arquivo"}
@@ -299,32 +444,19 @@ export default function NovaLicenca({ usuario }) {
               </div>
               {arquivoURL && !arquivo && (
                 <p className="licenca-upload-existente">
-                  📎{" "}
-                  <a href={arquivoURL} target="_blank" rel="noopener noreferrer">
-                    Ver arquivo atual
-                  </a>
+                  📎 <a href={arquivoURL} target="_blank" rel="noopener noreferrer">Ver arquivo atual</a>
                 </p>
               )}
-              {fazendoUpload && (
-                <p className="licenca-upload-progress">Enviando arquivo...</p>
-              )}
+              {fazendoUpload && <p className="licenca-upload-progress">Enviando arquivo...</p>}
             </div>
 
             {erro && <p className="licenca-erro">{erro}</p>}
 
             <div className="licenca-acoes">
-              <button
-                className="licenca-btn-salvar"
-                type="submit"
-                disabled={salvando || fazendoUpload}
-              >
+              <button className="licenca-btn-salvar" type="submit" disabled={salvando || fazendoUpload}>
                 {labelBotao}
               </button>
-              <button
-                className="licenca-btn-cancelar"
-                type="button"
-                onClick={() => navigate("/licencas")}
-              >
+              <button className="licenca-btn-cancelar" type="button" onClick={() => navigate("/licencas")}>
                 Cancelar
               </button>
             </div>

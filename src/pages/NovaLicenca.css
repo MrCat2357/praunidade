@@ -110,7 +110,7 @@
   border: 1.5px solid #9fc9ac;
   border-radius: 10px;
   z-index: 10;
-  max-height: 200px;
+  max-height: 176px; /* ~4 itens visíveis (44px cada), resto rola */
   overflow-y: auto;
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
 }

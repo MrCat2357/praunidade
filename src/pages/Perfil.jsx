@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { auth } from "../services/firebase/config";
-import { atualizarPerfil, carregarPerfil } from "../services/firebase/auth";
+import { atualizarPerfil, carregarPerfil, atualizarFotoPerfil } from "../services/firebase/auth";
+import AvisoVisitante from "../components/AvisoVisitante";
+import "../components/AvisoVisitante.css";
 import "./Perfil.css";
 
 const BIO_MAX = 120;
@@ -26,28 +28,54 @@ function Avatar({ nome, foto }) {
 
 export default function Perfil({ usuario }) {
   const navigate = useNavigate();
+  const { uid: uidParam } = useParams();
+  const donoUid = uidParam || usuario?.uid;
+  const modoVisitante = Boolean(uidParam);
 
   const [nome, setNome] = useState("");
   const [bio, setBio] = useState("");
+  const [emailExibido, setEmailExibido] = useState("");
+  const [fotoExibida, setFotoExibida] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [sucesso, setSucesso] = useState("");
   const [erro, setErro] = useState("");
 
-  // Carrega dados atuais do Firestore ao montar
+  const inputFotoRef = useRef(null);
+
   useEffect(() => {
-    if (!usuario?.uid) return;
-    carregarPerfil(usuario.uid)
-      .then((dados) => {
-        setNome(dados?.nome || usuario.displayName || "");
-        setBio(dados?.bio || "");
-      })
-      .catch(() => {
-        // Se falhar, usa o que o Firebase Auth já tem
-        setNome(usuario.displayName || "");
-      })
-      .finally(() => setCarregando(false));
-  }, [usuario]);
+    if (!donoUid) return;
+    setCarregando(true);
+
+    if (modoVisitante) {
+      // Perfil de outra pessoa: tudo vem do Firestore, nunca do
+      // `usuario` logado (que é só quem está navegando).
+      carregarPerfil(donoUid)
+        .then((dados) => {
+          setNome(dados?.nome || "");
+          setBio(dados?.bio || "");
+          setEmailExibido(dados?.email || "");
+          setFotoExibida(dados?.foto || "");
+        })
+        .catch(() => setErro("Não foi possível carregar este perfil agora."))
+        .finally(() => setCarregando(false));
+    } else {
+      // Meu próprio perfil: comportamento 100% igual ao original.
+      carregarPerfil(usuario.uid)
+        .then((dados) => {
+          setNome(dados?.nome || usuario.displayName || "");
+          setBio(dados?.bio || "");
+          setFotoExibida(dados?.foto || usuario.photoURL || "");
+        })
+        .catch(() => {
+          setNome(usuario.displayName || "");
+          setFotoExibida(usuario.photoURL || "");
+        })
+        .finally(() => setCarregando(false));
+      setEmailExibido(usuario.email || "");
+    }
+  }, [donoUid, modoVisitante, usuario]);
 
   function limparMensagens() {
     setSucesso("");
@@ -66,12 +94,30 @@ export default function Perfil({ usuario }) {
     try {
       await atualizarPerfil(usuario.uid, nome.trim(), bio.trim());
       setSucesso("Perfil atualizado!");
-      // Limpa o sucesso após 3 segundos
       setTimeout(() => setSucesso(""), 3000);
     } catch {
       setErro("Não foi possível salvar as alterações. Tente novamente.");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function handleSelecionarFoto(e) {
+    const arquivo = e.target.files?.[0];
+    e.target.value = ""; // permite escolher o mesmo arquivo de novo depois
+    if (!arquivo) return;
+
+    limparMensagens();
+    setEnviandoFoto(true);
+    try {
+      const url = await atualizarFotoPerfil(usuario.uid, arquivo);
+      setFotoExibida(url);
+      setSucesso("Foto de perfil atualizada!");
+      setTimeout(() => setSucesso(""), 3000);
+    } catch (err) {
+      setErro(err.message || "Não foi possível atualizar a foto. Tente novamente.");
+    } finally {
+      setEnviandoFoto(false);
     }
   }
 
@@ -95,16 +141,67 @@ export default function Perfil({ usuario }) {
   return (
     <div className="perfil-bg">
       <div className="perfil-container">
-        <button className="perfil-link-voltar" onClick={() => navigate("/")}>
+        <button
+          className="perfil-link-voltar"
+          onClick={() => navigate(modoVisitante ? "/conexoes" : "/")}
+        >
           ← Voltar
         </button>
 
-        <h1 className="perfil-titulo">Meu perfil</h1>
-        <p className="perfil-sub">Veja e edite suas informações pessoais.</p>
+        {modoVisitante && <AvisoVisitante nomeDono={nome} />}
+
+        <h1 className="perfil-titulo">
+          {modoVisitante ? `Perfil de ${nome || "..."}` : "Meu perfil"}
+        </h1>
+        {!modoVisitante && (
+          <p className="perfil-sub">Veja e edite suas informações pessoais.</p>
+        )}
+
+        {/* Menu de navegação — só existe no modo visitante, já que o
+            Home.jsx (que tem esse menu na conta normal) não é
+            reaproveitado aqui. */}
+        {modoVisitante && (
+          <div className="perfil-menu-visitante">
+            <button className="home-btn-primario" onClick={() => navigate(`/conexao/${donoUid}/inss`)}>
+              Acompanhamento INSS
+            </button>
+            <button className="home-btn-primario" onClick={() => navigate(`/conexao/${donoUid}/licencas`)}>
+              Licenças
+            </button>
+            <button className="home-btn-primario" onClick={() => navigate(`/conexao/${donoUid}/funcionarios`)}>
+              Funcionários
+            </button>
+            <button className="home-btn-primario" onClick={() => navigate(`/conexao/${donoUid}/conexoes`)}>
+              Conexões
+            </button>
+          </div>
+        )}
 
         <div className="perfil-card">
           <div className="perfil-avatar-wrap">
-            <Avatar nome={nome} foto={usuario?.photoURL} />
+            <div className="perfil-avatar-editavel">
+              <Avatar nome={nome} foto={fotoExibida} />
+              {!modoVisitante && (
+                <button
+                  type="button"
+                  className="perfil-btn-trocar-foto"
+                  onClick={() => inputFotoRef.current?.click()}
+                  disabled={enviandoFoto}
+                  title="Trocar foto de perfil"
+                >
+                  {enviandoFoto ? "..." : "📷"}
+                </button>
+              )}
+            </div>
+            {!modoVisitante && (
+              <input
+                ref={inputFotoRef}
+                type="file"
+                accept="image/*"
+                className="perfil-input-foto-oculto"
+                onChange={handleSelecionarFoto}
+              />
+            )}
           </div>
 
           <form className="perfil-form" onSubmit={handleSalvar}>
@@ -115,7 +212,8 @@ export default function Perfil({ usuario }) {
                 type="text"
                 placeholder="Seu nome completo"
                 value={nome}
-                onChange={(e) => { limparMensagens(); setNome(e.target.value); }}
+                readOnly={modoVisitante}
+                onChange={(e) => { if (!modoVisitante) { limparMensagens(); setNome(e.target.value); } }}
               />
             </div>
 
@@ -124,7 +222,7 @@ export default function Perfil({ usuario }) {
               <input
                 className="perfil-input perfil-input-bloqueado"
                 type="email"
-                value={usuario?.email || ""}
+                value={emailExibido}
                 readOnly
               />
             </div>
@@ -137,32 +235,29 @@ export default function Perfil({ usuario }) {
                 placeholder="Uma frase sobre você ou sua função (opcional)"
                 value={bio}
                 maxLength={BIO_MAX}
-                onChange={(e) => { limparMensagens(); setBio(e.target.value); }}
+                readOnly={modoVisitante}
+                onChange={(e) => { if (!modoVisitante) { limparMensagens(); setBio(e.target.value); } }}
               />
-              <p className={`perfil-contador ${bio.length >= BIO_MAX ? "perfil-contador-limite" : ""}`}>
-                {bio.length}/{BIO_MAX}
-              </p>
+              {!modoVisitante && (
+                <p className={`perfil-contador ${bio.length >= BIO_MAX ? "perfil-contador-limite" : ""}`}>
+                  {bio.length}/{BIO_MAX}
+                </p>
+              )}
             </div>
 
             {sucesso && <p className="perfil-sucesso">{sucesso}</p>}
             {erro && <p className="perfil-erro">{erro}</p>}
 
-            <div className="perfil-acoes">
-              <button
-                className="perfil-btn-salvar"
-                type="submit"
-                disabled={salvando}
-              >
-                {salvando ? "Salvando..." : "Salvar alterações"}
-              </button>
-              <button
-                className="perfil-btn-sair"
-                type="button"
-                onClick={handleSair}
-              >
-                Sair da conta
-              </button>
-            </div>
+            {!modoVisitante && (
+              <div className="perfil-acoes">
+                <button className="perfil-btn-salvar" type="submit" disabled={salvando}>
+                  {salvando ? "Salvando..." : "Salvar alterações"}
+                </button>
+                <button className="perfil-btn-sair" type="button" onClick={handleSair}>
+                  Sair da conta
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>

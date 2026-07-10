@@ -1,0 +1,10 @@
+.aviso-visitante {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5c4006;
+  background-color: #fbefd3;
+  border: 1px solid #e6d190;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}

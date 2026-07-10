@@ -21,8 +21,9 @@ import { db, storage } from "./config";
 // ─── FUNCIONÁRIOS ────────────────────────────────────────────────────────────
 
 // Busca funcionário pelo nome exato + donoUid.
-// Se não existir, cria e retorna o novo id.
-export async function buscarOuCriarFuncionario(nome, donoUid) {
+// Se não existir, cria com a matrícula informada.
+// Se existir mas ainda não tinha matrícula, sincroniza com a que veio agora.
+export async function buscarOuCriarFuncionario(nome, matricula, donoUid) {
   const nomeLimpo = nome.trim();
   const q = query(
     collection(db, "funcionarios"),
@@ -30,10 +31,19 @@ export async function buscarOuCriarFuncionario(nome, donoUid) {
     where("nome", "==", nomeLimpo)
   );
   const snap = await getDocs(q);
-  if (!snap.empty) return snap.docs[0].id;
+
+  if (!snap.empty) {
+    const docExistente = snap.docs[0];
+    const existente = docExistente.data();
+    if (matricula && !existente.matricula) {
+      await updateDoc(doc(db, "funcionarios", docExistente.id), { matricula });
+    }
+    return docExistente.id;
+  }
 
   const novo = await addDoc(collection(db, "funcionarios"), {
     nome: nomeLimpo,
+    matricula: matricula || "",
     donoUid,
     criadoEm: serverTimestamp(),
   });
@@ -49,6 +59,26 @@ export async function listarFuncionarios(donoUid) {
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// Edita nome e/ou matrícula de um funcionário existente
+export async function editarFuncionario(funcionarioId, dados) {
+  await updateDoc(doc(db, "funcionarios", funcionarioId), {
+    nome: dados.nome.trim(),
+    matricula: dados.matricula || "",
+  });
+}
+
+// Lista os CIDs já usados pelo usuário, sem repetição, em ordem alfabética
+export async function listarCidsUnicos(donoUid) {
+  const q = query(collection(db, "licencas"), where("donoUid", "==", donoUid));
+  const snap = await getDocs(q);
+  const cids = new Set();
+  snap.docs.forEach((d) => {
+    const cid = d.data().cid;
+    if (cid) cids.add(cid);
+  });
+  return Array.from(cids).sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
 // ─── LICENÇAS ─────────────────────────────────────────────────────────────────
@@ -83,6 +113,20 @@ export async function listarLicencas(donoUid) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// Lista SOMENTE as licenças ocultas do usuário, ordenadas por
+// dataInicio decrescente. Usado na tela de "licenças ocultas" para
+// permitir restaurar um registro escondido por engano.
+export async function listarLicencasOcultas(donoUid) {
+  const q = query(
+    collection(db, "licencas"),
+    where("donoUid", "==", donoUid),
+    where("oculto", "==", true),
+    orderBy("dataInicio", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 // Busca uma licença específica pelo id
 export async function buscarLicenca(licencaId) {
   const snap = await getDoc(doc(db, "licencas", licencaId));
@@ -105,6 +149,72 @@ export async function editarLicenca(licencaId, dados) {
 // Marca a licença como oculta (não exclui)
 export async function ocultarLicenca(licencaId) {
   await updateDoc(doc(db, "licencas", licencaId), { oculto: true });
+}
+
+// Reverte uma licença ocultada, tornando-a visível novamente nas
+// listagens padrão (listarLicencas) e na Timeline.
+export async function restaurarLicenca(licencaId) {
+  await updateDoc(doc(db, "licencas", licencaId), { oculto: false });
+}
+
+// Marca encaminhadoINSS: true em todas as licenças de um funcionário
+// para um CID específico. Usado quando o total de dias na janela de
+// 60 dias ultrapassa 15 e o funcionário é de fato encaminhado ao INSS.
+//
+// IMPORTANTE: a query precisa filtrar também por donoUid. As regras do
+// Firestore exigem `resource.data.donoUid == request.auth.uid` para
+// update, e em consultas de lista (getDocs de uma query, diferente de
+// um getDoc único) o Firestore só permite a operação se a PRÓPRIA
+// QUERY já restringir os resultados de forma comprovável — ele não
+// filtra documento por documento depois de buscar. Sem o
+// where("donoUid", "==", donoUid) aqui, a consulta inteira é negada
+// com "Missing or insufficient permissions", mesmo que todos os
+// documentos retornados realmente pertençam ao usuário.
+export async function marcarEncaminhadoINSS(funcionarioId, cid, donoUid) {
+  const q = query(
+    collection(db, "licencas"),
+    where("donoUid", "==", donoUid),
+    where("funcionarioId", "==", funcionarioId),
+    where("cid", "==", cid)
+  );
+  const snap = await getDocs(q);
+
+  const atualizacoes = snap.docs.map((d) =>
+    updateDoc(doc(db, "licencas", d.id), { encaminhadoINSS: true })
+  );
+
+  await Promise.all(atualizacoes);
+}
+
+// Desfaz o encaminhamento ao INSS: seta encaminhadoINSS: false em todas
+// as licenças de um funcionário para um CID específico. É o inverso
+// exato de marcarEncaminhadoINSS, usado quando o encaminhamento foi
+// marcado por engano ou quando o funcionário teve uma recaída e o
+// status precisa voltar a ser calculado normalmente pelos dias reais
+// de afastamento na janela de 60 dias.
+//
+// IMPORTANTE: mesma pegadinha do Firestore de marcarEncaminhadoINSS —
+// a query PRECISA filtrar também por donoUid além de funcionarioId e
+// cid. Em consultas de lista (getDocs de uma query), o Firestore só
+// permite a operação se a PRÓPRIA QUERY já restringir os resultados
+// de forma comprovável; ele não filtra documento por documento depois
+// de buscar. Sem o where("donoUid", "==", donoUid), a consulta inteira
+// é negada com "Missing or insufficient permissions", mesmo que todos
+// os documentos retornados realmente pertençam ao usuário.
+export async function desfazerEncaminhamentoINSS(funcionarioId, cid, donoUid) {
+  const q = query(
+    collection(db, "licencas"),
+    where("donoUid", "==", donoUid),
+    where("funcionarioId", "==", funcionarioId),
+    where("cid", "==", cid)
+  );
+  const snap = await getDocs(q);
+
+  const atualizacoes = snap.docs.map((d) =>
+    updateDoc(doc(db, "licencas", d.id), { encaminhadoINSS: false })
+  );
+
+  await Promise.all(atualizacoes);
 }
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────

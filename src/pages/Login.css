@@ -167,6 +167,10 @@
   text-decoration: underline;
 }
 
+.login-termos-google {
+  margin-bottom: 20px;
+}
+
 .login-erro {
   font-size: 14px;
   color: #f87171;
@@ -247,6 +251,7 @@
 
 .login-link {
   display: block;
+  width: 100%;
   background: none;
   border: none;
   color: #10b981;
@@ -261,6 +266,67 @@
 
 .login-link:hover {
   text-decoration: underline;
+}
+
+.login-link:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Card de usuário Google (tela de aceite de termos) */
+.login-google-user-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background-color: #0f172a;
+  border: 1.5px solid #334155;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.login-google-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: #10b981;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.login-google-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.login-google-user-info {
+  min-width: 0;
+}
+
+.login-google-user-nome {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0 0 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.login-google-user-email {
+  font-size: 14px;
+  color: #94a3b8;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Mobile */
